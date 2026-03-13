@@ -411,6 +411,26 @@ let state = {
   currentVideoExKey: null
 };
 
+// ===================== EQUIPOS =====================
+const EQUIPO_MAP = {
+  'kb':   { label: 'KB',         color: '#44cc88', bg: '#1a2e1a' },
+  'sb':   { label: 'SB',         color: '#ff8844', bg: '#2e1a1a' },
+  'bb':   { label: 'Barra',      color: '#4488ff', bg: '#1a1a2e' },
+  'db':   { label: 'Mancuerna',  color: '#cc88ff', bg: '#2a1a2e' },
+  'bw':   { label: 'BW',         color: '#a0a0a0', bg: '#222222' },
+  'band': { label: 'Banda',      color: '#44cccc', bg: '#1a2e2e' },
+  'trx':  { label: 'TRX',        color: '#ffcc44', bg: '#2e2a1a' },
+};
+function getEquipoTag(equipo, extraStyle = '') {
+  const e = EQUIPO_MAP[equipo];
+  if (!e) return '';
+  return `<span class="ex-tag" style="background:${e.bg};color:${e.color};${extraStyle}">${e.label}</span>`;
+}
+function equipoOptions(selected = '') {
+  const opts = [['', '—'], ['kb', 'Kettlebell (KB)'], ['sb', 'Sandbag (SB)'], ['bb', 'Barra'], ['db', 'Mancuerna'], ['bw', 'Peso corporal'], ['band', 'Banda'], ['trx', 'TRX']];
+  return opts.map(([v, l]) => `<option value="${v}" ${selected === v ? 'selected' : ''}>${l}</option>`).join('');
+}
+
 // ===================== PERSISTENCIA =====================
 function save() { localStorage.setItem('mulemode_v1', JSON.stringify({ rutinas: state.rutinas, historial: state.historial, videos: state.videos })); }
 function load() {
@@ -549,7 +569,7 @@ function renderRutinas() {
           <div class="ex-row">
             <div>
               <span class="ex-row-name">${e.nombre}</span>
-              ${e.equipo === 'kb' ? '<span class="ex-tag tag-kb">KB</span>' : e.equipo === 'sb' ? '<span class="ex-tag tag-sb">SB</span>' : ''}
+              ${getEquipoTag(e.equipo)}
               ${e.musclewiki ? `<a href="${e.musclewiki}" target="_blank" style="font-size:11px;padding:2px 8px;border-radius:20px;background:#1a2a1a;color:#44cc88;text-decoration:none;margin-left:4px;">💪 MuscleWiki</a>` : ''}
             </div>
             <span class="ex-row-sets">${e.series}×${e.reps}</span>
@@ -613,11 +633,7 @@ function agregarEjercicioForm(ex = null) {
       <div><label class="form-label">Series</label><input class="form-input" type="number" placeholder="4" value="${ex ? ex.series : ''}" data-field="series"></div>
       <div><label class="form-label">Reps</label><input class="form-input" placeholder="10" value="${ex ? ex.reps : ''}" data-field="reps"></div>
       <div><label class="form-label">Equipo</label>
-        <select class="form-select" data-field="equipo">
-          <option value="" ${!ex||ex.equipo===''?'selected':''}>—</option>
-          <option value="kb" ${ex&&ex.equipo==='kb'?'selected':''}>KB</option>
-          <option value="sb" ${ex&&ex.equipo==='sb'?'selected':''}>SB</option>
-        </select>
+        <select class="form-select" data-field="equipo">${equipoOptions(ex ? ex.equipo : '')}</select>
       </div>
     </div>
     <div>
@@ -700,7 +716,7 @@ function renderWorkout() {
     <div class="exercise-block" id="exblock-${ei}">
       <div class="ex-block-header" onclick="toggleExBlock(${ei})">
         <div>
-          <div class="ex-block-name">${ex.nombre}${ex.equipo==='kb'?'<span class="ex-tag tag-kb" style="margin-left:6px">KB</span>':ex.equipo==='sb'?'<span class="ex-tag tag-sb" style="margin-left:6px">SB</span>':''}</div>
+          <div class="ex-block-name">${ex.nombre}${getEquipoTag(ex.equipo, 'margin-left:6px')}</div>
           <div class="ex-block-detail">${ex.series.length} series · ${ex.reps}</div>
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
