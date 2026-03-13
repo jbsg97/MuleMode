@@ -498,7 +498,7 @@ function updateDashboard() {
   document.getElementById('fecha-hoy').textContent = `${dias[hoy.getDay()]}, ${hoy.getDate()} ${meses[hoy.getMonth()]}`;
   document.getElementById('stat-total').textContent = state.historial.length;
   let totalVol = 0;
-  state.historial.forEach(h => h.ejercicios && h.ejercicios.forEach(e => e.series && e.series.forEach(s => { if (s.peso && s.reps && s.done) totalVol += parseFloat(s.peso||0) * parseFloat(s.reps||0); })));
+  state.historial.forEach(h => h.ejercicios && h.ejercicios.forEach(e => e.series && e.series.forEach(s => { if (s.peso && s.reps && s.done) totalVol += (parseFloat(s.peso)||0) * (parseFloat(s.reps)||0); })));
   const totalK = totalVol >= 1000 ? (totalVol/1000).toFixed(1)+'k' : Math.round(totalVol);
   document.getElementById('stat-vol').textContent = totalK;
   // semana
@@ -636,6 +636,14 @@ function agregarEjercicioForm(ex = null) {
         <select class="form-select" data-field="equipo">${equipoOptions(ex ? ex.equipo : '')}</select>
       </div>
     </div>
+    <div style="margin-bottom:10px">
+      <label class="form-label">Tipo de medida</label>
+      <select class="form-select" data-field="tipoMedida">
+        <option value="reps" ${!ex||!ex.tipoMedida||ex.tipoMedida==='reps'?'selected':''}>Repeticiones</option>
+        <option value="time" ${ex&&ex.tipoMedida==='time'?'selected':''}>Tiempo (segundos)</option>
+        <option value="dist" ${ex&&ex.tipoMedida==='dist'?'selected':''}>Distancia (metros)</option>
+      </select>
+    </div>
     <div>
       <label class="form-label" style="display:flex;align-items:center;gap:6px">▶ Video de YouTube <span style="color:var(--text3);font-weight:400">(opcional)</span></label>
       <input class="form-input" type="url" placeholder="https://youtube.com/watch?v=..." value="${videoUrl}" data-field="video" style="font-size:13px">
@@ -663,6 +671,7 @@ function guardarRutina() {
       series: parseInt(div.querySelector('[data-field="series"]').value) || 3,
       reps: div.querySelector('[data-field="reps"]').value || '10',
       equipo: div.querySelector('[data-field="equipo"]').value,
+      tipoMedida: (div.querySelector('[data-field="tipoMedida"]') ? div.querySelector('[data-field="tipoMedida"]').value : 'reps') || 'reps',
       musclewiki: mwUrl,
       notas: ''
     });
@@ -726,12 +735,12 @@ function renderWorkout() {
       </div>
       <div id="exbody-${ei}">
         <table class="series-table">
-          <tr><th>Serie</th><th>Kg</th><th>Reps</th><th>✓</th></tr>
-          ${ex.series.map((s, si) => { const lp = getLastPeso(ex.nombre, si); return `
+          ${(() => { const isBand = ex.equipo === 'band'; const pesoHdr = isBand ? 'Color' : 'Kg'; const medHdr = ex.tipoMedida === 'time' ? 'Seg' : ex.tipoMedida === 'dist' ? 'Metros' : 'Reps'; return `<tr><th>Serie</th><th>${pesoHdr}</th><th>${medHdr}</th><th>✓</th></tr>`; })()}
+          ${ex.series.map((s, si) => { const lp = getLastPeso(ex.nombre, si); const isBand = ex.equipo === 'band'; const isTime = ex.tipoMedida === 'time'; const isDist = ex.tipoMedida === 'dist'; const pesoInput = isBand ? `<input class="series-input" type="text" placeholder="Color" value="${s.peso}" onchange="updateSerie(${ei},${si},'peso',this.value)" style="width:64px">` : `<input class="series-input" type="number" placeholder="${lp ? lp+'kg' : '—'}" value="${s.peso}" onchange="updateSerie(${ei},${si},'peso',this.value)" min="0" step="0.5">`; const medPlaceholder = isTime ? 'seg' : isDist ? 'm' : s.reps; return `
             <tr id="serie-row-${ei}-${si}">
               <td style="color:var(--text2);font-size:13px">${s.idx}</td>
-              <td><input class="series-input" type="number" placeholder="${lp ? lp+'kg' : '—'}" value="${s.peso}" onchange="updateSerie(${ei},${si},'peso',this.value)" min="0" step="0.5"></td>
-              <td><input class="series-input" type="text" placeholder="${s.reps}" value="${s.reps}" onchange="updateSerie(${ei},${si},'reps',this.value)" style="width:56px"></td>
+              <td>${pesoInput}</td>
+              <td><input class="series-input" type="${isTime||isDist?'number':'text'}" placeholder="${medPlaceholder}" value="${s.reps}" onchange="updateSerie(${ei},${si},'reps',this.value)" style="width:56px"></td>
               <td><div class="series-check ${s.done?'done':''}" id="check-${ei}-${si}" onclick="toggleSerie(${ei},${si})">✓</div></td>
             </tr>`;}).join('')}
         </table>
