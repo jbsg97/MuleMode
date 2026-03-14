@@ -9,15 +9,15 @@
       <!-- Gemini API Key -->
       <div style="margin-bottom:24px">
         <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:4px">
-          🤖 Google Gemini API Key
+          🤖 Groq API Key
         </div>
         <div style="font-size:12px;color:var(--text3);margin-bottom:10px;line-height:1.5">
-          Permite detectar músculos automáticamente al escribir el nombre de un ejercicio.
+          Detecta músculos automáticamente al escribir el nombre de un ejercicio.
           Tu key se guarda en tu cuenta y nunca se comparte.<br><br>
           <strong style="color:var(--text2)">Cómo obtenerla gratis:</strong><br>
-          1. Ve a <span style="color:var(--accent)">aistudio.google.com</span><br>
+          1. Ve a <span style="color:var(--accent)">console.groq.com</span><br>
           2. Inicia sesión con Google<br>
-          3. Clic en <em>"Get API key"</em> → <em>"Create API key"</em><br>
+          3. Clic en <em>"API Keys"</em> → <em>"Create API key"</em><br>
           4. Copia la key y pégala aquí
         </div>
         <input

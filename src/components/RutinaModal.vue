@@ -134,7 +134,7 @@ watch(() => store.rutinaModalVisible, (visible) => {
 
 const detectTimers = {}
 
-async function detectarConGemini(nombre) {
+async function detectarConIA(nombre) {
   const key = store.geminiKey
   if (!key || nombre.trim().length < 3) return null
   const prompt = `Given the exercise "${nombre}", identify which muscle groups are worked.
@@ -144,16 +144,21 @@ Use ONLY these muscle IDs: ${VALID_MUSCLES.join(', ')}.
 Primary = >60% MVC activation, secondary = 30-60%, tertiary = <30%.`
 
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
-      }
-    )
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key}`,
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0,
+        max_tokens: 200,
+      }),
+    })
     const data = await res.json()
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+    const text = data?.choices?.[0]?.message?.content || ''
     const json = JSON.parse(text.replace(/```json?|```/g, '').trim())
     const filter = (arr) => (arr || []).filter(m => VALID_MUSCLES.includes(m))
     return { primario: filter(json.primario), secundario: filter(json.secundario), terciario: filter(json.terciario) }
@@ -189,7 +194,7 @@ function addExercise(ex = null) {
     if (!store.geminiKey || val.trim().length < 3) return
     detectTimers[reactive._formId] = setTimeout(async () => {
       reactive._detecting = true
-      const match = await detectarConGemini(val)
+      const match = await detectarConIA(val)
       reactive._detecting = false
       if (match && (match.primario.length || match.secundario.length)) {
         reactive.musculos = [
