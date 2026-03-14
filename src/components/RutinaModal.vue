@@ -176,9 +176,7 @@ async function generarConIA(ex) {
   "busqueda_video": "string"
 }
 
-For "notas": write in Spanish using "tú", like a coach talking directly to the athlete. Use | as separator between sections (NOT line breaks):
-💨 [exact breathing cue for THIS exercise] | 📐 [specific form cue 1] | 📐 [specific form cue 2] | 🎯 [tip if they don't feel the target muscle]
-${generoTip}Vary your wording naturally, never use generic or template-like language.
+For "notas": write in Spanish using "tú", as a real experienced coach who knows this athlete. Use | as separator between lines (NOT line breaks). Write 4 lines covering: breathing timing, 2 technique points, and what to do if they don't feel the muscle. Rules: no emojis, no bullet points, no headers, no template phrasing like "recuerda" or "asegúrate" — just direct, specific, natural coaching cues that sound different every time. Each line should feel handwritten, not generated.${generoTip}
 
 For "busqueda_video": a specific search query in Spanish, example format: Como hacer peso muerto correctamente para hombre. Include equipment if relevant. Must be a plain string value with no special characters.
 
