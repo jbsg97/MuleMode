@@ -7,9 +7,8 @@
         <svg viewBox="0 0 100 200" class="mmap-svg" xmlns="http://www.w3.org/2000/svg">
           <polygon v-for="(p, i) in anteriorPolys" :key="'a'+i"
             :points="p.points"
-            :fill="getPolyColor(p.muscle, p.selectable)"
-            :class="['mpoly', !readonly && p.selectable && 'selectable']"
-            @click="!readonly && p.selectable && toggle(p.muscle)"
+            :style="{ fill: getPolyColor(p.muscle, p.selectable) }"
+            class="mpoly"
           />
         </svg>
       </div>
@@ -19,31 +18,37 @@
         <svg viewBox="0 0 100 200" class="mmap-svg" xmlns="http://www.w3.org/2000/svg">
           <polygon v-for="(p, i) in posteriorPolys" :key="'p'+i"
             :points="p.points"
-            :fill="getPolyColor(p.muscle, p.selectable)"
-            :class="['mpoly', !readonly && p.selectable && 'selectable']"
-            @click="!readonly && p.selectable && toggle(p.muscle)"
+            :style="{ fill: getPolyColor(p.muscle, p.selectable) }"
+            class="mpoly"
           />
         </svg>
       </div>
     </div>
 
-    <!-- Leyenda -->
-    <div v-if="!readonly" class="mmap-legend">
-      <span style="color:#ff4d4d">● Primario</span>
-      <span style="color:#ff9900">● Secundario</span>
-      <span style="color:#ffd700">● Terciario</span>
-      <span style="color:var(--text3);font-size:10px">(toca para ciclar)</span>
-    </div>
+    <!-- Selector de músculos (touch-friendly) -->
+    <template v-if="!readonly">
+      <div class="mmap-legend">
+        <span style="color:#ff4d4d">● Primario</span>
+        <span style="color:#ff9900">● Secundario</span>
+        <span style="color:#ffd700">● Terciario</span>
+      </div>
+      <div class="mmap-grid">
+        <button v-for="m in ALL_MUSCLES" :key="m" type="button"
+          class="mmap-btn"
+          :style="getNivel(m) ? `background:${NIVEL_COLORS[getNivel(m)]}22;color:${NIVEL_COLORS[getNivel(m)]};border-color:${NIVEL_COLORS[getNivel(m)]}80` : ''"
+          @click="toggle(m)">
+          {{ LABELS[m] || m }}
+        </button>
+      </div>
+    </template>
 
-    <!-- Chips de músculos seleccionados -->
-    <div v-if="modelValue.length > 0" class="mmap-chips">
+    <!-- Chips readonly -->
+    <div v-if="readonly && modelValue.length > 0" class="mmap-chips">
       <span v-for="entry in normalizedValue" :key="entry.muscle" class="mmap-chip"
-        :style="`border-color:${NIVEL_COLORS[entry.nivel]}40;color:${NIVEL_COLORS[entry.nivel]};background:${NIVEL_COLORS[entry.nivel]}18;${readonly ? 'cursor:default' : ''}`"
-        @click="!readonly && toggle(entry.muscle)">
-        ● {{ LABELS[entry.muscle] || entry.muscle }} {{ readonly ? '' : '✕' }}
+        :style="`border-color:${NIVEL_COLORS[entry.nivel]}40;color:${NIVEL_COLORS[entry.nivel]};background:${NIVEL_COLORS[entry.nivel]}18;cursor:default`">
+        ● {{ LABELS[entry.muscle] || entry.muscle }}
       </span>
     </div>
-    <div v-else-if="!readonly" class="mmap-hint">Toca los músculos para marcarlos</div>
   </div>
 </template>
 
@@ -60,6 +65,11 @@ import { MUSCLE_LABELS as LABELS } from '../store/index.js'
 const NIVEL_COLORS   = { primario: '#ff4d4d', secundario: '#ff9900', terciario: '#ffd700' }
 const NIVEL_CYCLE    = ['primario', 'secundario', 'terciario']
 const NON_SELECTABLE = new Set(['head', 'knees', 'right-soleus'])
+
+const ALL_MUSCLES = [
+  'chest', 'abs', 'obliques', 'front-deltoids', 'biceps', 'triceps', 'forearm', 'neck', 'abductors', 'quadriceps', 'calves',
+  'trapezius', 'upper-back', 'lower-back', 'back-deltoids', 'gluteal', 'adductor', 'hamstring', 'left-soleus',
+]
 
 // Normaliza el array — acepta tanto strings como {muscle, nivel}
 const normalizedValue = computed(() =>
@@ -231,17 +241,7 @@ function toggle(muscle) {
 }
 
 .mpoly {
-  fill: #2e2b3e;
   transition: fill 0.15s;
-}
-
-.mpoly.selectable {
-  cursor: pointer;
-  fill: #3b3750;
-}
-
-.mpoly.selectable:hover {
-  fill: #524e6a;
 }
 
 .mmap-legend {
@@ -249,8 +249,29 @@ function toggle(muscle) {
   gap: 10px;
   justify-content: center;
   font-size: 11px;
-  margin-top: 8px;
+  margin-top: 10px;
   flex-wrap: wrap;
+}
+
+.mmap-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  justify-content: center;
+}
+
+.mmap-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text2);
+  font-size: 12px;
+  font-family: inherit;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  min-height: 34px;
 }
 
 .mmap-chips {
