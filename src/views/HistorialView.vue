@@ -30,9 +30,8 @@
               <div v-if="volStr(h)" class="history-chip">⚡ <span>{{ volStr(h) }} kg</span></div>
             </div>
           </div>
-          <button @click.stop="confirmarBorrar(h.id)"
-            style="background:none;border:1px solid var(--red);color:var(--red);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;flex-shrink:0;margin-left:8px;">
-            ✕
+          <button class="delete-btn" @click.stop="confirmarBorrar(h.id)" title="Eliminar">
+            🗑
           </button>
         </div>
 

@@ -5,7 +5,7 @@
       <button class="modal-close" @click="store.rutinaModalVisible = false">✕</button>
     </div>
 
-    <div style="padding:0 16px;overflow-y:auto;flex:1;padding-bottom:32px">
+    <div style="padding:0 16px;overflow-y:auto;flex:1;padding-bottom:16px">
       <div class="form-group">
         <label class="form-label">Nombre de la rutina</label>
         <input class="form-input" v-model="nombre" placeholder="Ej: Día 1 — Empuje">
@@ -84,10 +84,12 @@
         </div>
       </div>
 
-      <div style="height:20px"></div>
+    </div>
+
+    <!-- Sticky footer -->
+    <div class="modal-footer">
       <button class="btn btn-accent btn-full" @click="guardar">Guardar rutina</button>
-      <div style="height:12px"></div>
-      <button v-if="store.editingRutinaId" class="btn btn-danger btn-full" @click="eliminar">
+      <button v-if="store.editingRutinaId" class="btn btn-danger btn-full" style="margin-top:8px" @click="eliminar">
         Eliminar rutina
       </button>
     </div>

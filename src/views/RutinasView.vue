@@ -99,6 +99,8 @@ const equipoMap = EQUIPO_MAP
 const openCards = reactive({})
 
 function toggleCard(id) {
-  openCards[id] = !openCards[id]
+  const wasOpen = openCards[id]
+  Object.keys(openCards).forEach(k => { openCards[k] = false })
+  openCards[id] = !wasOpen
 }
 </script>
