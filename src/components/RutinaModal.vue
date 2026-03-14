@@ -1,0 +1,148 @@
+<template>
+  <div class="modal" :class="{ show: store.rutinaModalVisible }">
+    <div class="modal-header">
+      <div class="modal-title">{{ store.editingRutinaId ? 'Editar rutina' : 'Nueva rutina' }}</div>
+      <button class="modal-close" @click="store.rutinaModalVisible = false">✕</button>
+    </div>
+
+    <div style="padding:0 16px;overflow-y:auto;flex:1;padding-bottom:32px">
+      <div class="form-group">
+        <label class="form-label">Nombre de la rutina</label>
+        <input class="form-input" v-model="nombre" placeholder="Ej: Día 1 — Empuje">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descripción (opcional)</label>
+        <input class="form-input" v-model="desc" placeholder="Ej: Pecho · Hombros · Core">
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div class="form-label" style="margin:0">Ejercicios</div>
+        <button class="btn btn-outline btn-sm" @click="addExercise()">+ Agregar</button>
+      </div>
+
+      <div v-for="(ex, idx) in exercises" :key="ex._formId"
+        style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:13px;font-weight:600;color:var(--text2)">Ejercicio {{ idx + 1 }}</div>
+          <button @click="removeExercise(idx)"
+            style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer">✕</button>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Nombre</label>
+          <input class="form-input" v-model="ex.nombre" placeholder="Ej: KB swing">
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
+          <div>
+            <label class="form-label">Series</label>
+            <input class="form-input" type="number" placeholder="4" v-model.number="ex.series">
+          </div>
+          <div>
+            <label class="form-label">Reps</label>
+            <input class="form-input" placeholder="10" v-model="ex.reps">
+          </div>
+          <div>
+            <label class="form-label">Equipo</label>
+            <select class="form-select" v-model="ex.equipo">
+              <option v-for="[val, label] in EQUIPO_OPTIONS" :key="val" :value="val">{{ label }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-bottom:10px">
+          <label class="form-label">Tipo de medida</label>
+          <select class="form-select" v-model="ex.tipoMedida">
+            <option value="reps">Repeticiones</option>
+            <option value="time">Tiempo (segundos)</option>
+            <option value="dist">Distancia (metros)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">▶ Video de YouTube <span style="color:var(--text3);font-weight:400">(opcional)</span></label>
+          <input class="form-input" type="url" placeholder="https://youtube.com/watch?v=..." v-model="ex.video" style="font-size:13px">
+        </div>
+
+        <div>
+          <label class="form-label">💪 Link MuscleWiki <span style="color:var(--text3);font-weight:400">(opcional)</span></label>
+          <input class="form-input" type="url" placeholder="https://musclewiki.com/..." v-model="ex.musclewiki" style="font-size:13px">
+        </div>
+      </div>
+
+      <div style="height:20px"></div>
+      <button class="btn btn-accent btn-full" @click="guardar">Guardar rutina</button>
+      <div style="height:12px"></div>
+      <button v-if="store.editingRutinaId" class="btn btn-danger btn-full" @click="eliminar">
+        Eliminar rutina
+      </button>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, watch } from 'vue'
+import { useStore, EQUIPO_OPTIONS } from '../store/index.js'
+
+const store = useStore()
+const nombre = ref('')
+const desc = ref('')
+const exercises = ref([])
+
+watch(() => store.rutinaModalVisible, (visible) => {
+  if (!visible) return
+  const r = store.editingRutinaId ? store.rutinas.find(x => x.id === store.editingRutinaId) : null
+  nombre.value = r?.nombre || ''
+  desc.value = r?.desc || ''
+  exercises.value = []
+  if (r) {
+    r.ejercicios.forEach(e => addExercise(e))
+  } else {
+    addExercise()
+  }
+})
+
+function addExercise(ex = null) {
+  exercises.value.push({
+    _formId: Date.now() + Math.random(),
+    id: ex?.id || ('e' + Date.now() + Math.random()),
+    nombre: ex?.nombre || '',
+    series: ex?.series || 3,
+    reps: ex?.reps || '10',
+    equipo: ex?.equipo || '',
+    tipoMedida: ex?.tipoMedida || 'reps',
+    video: ex ? (store.videos[ex.id] || ex.video || '') : '',
+    musclewiki: ex?.musclewiki || '',
+  })
+}
+
+function removeExercise(idx) {
+  exercises.value.splice(idx, 1)
+}
+
+function guardar() {
+  if (!nombre.value.trim()) { store.showToast('Ingresa un nombre para la rutina'); return }
+  const ejercicios = exercises.value
+    .filter(e => e.nombre.trim())
+    .map(e => {
+      if (e.video) store.videos[e.id] = e.video
+      else delete store.videos[e.id]
+      return {
+        id: e.id,
+        nombre: e.nombre.trim(),
+        series: parseInt(e.series) || 3,
+        reps: e.reps || '10',
+        equipo: e.equipo,
+        tipoMedida: e.tipoMedida || 'reps',
+        musclewiki: e.musclewiki || '',
+        notas: '',
+      }
+    })
+  if (ejercicios.length === 0) { store.showToast('Agrega al menos un ejercicio'); return }
+  store.guardarRutina(nombre.value.trim(), desc.value.trim(), ejercicios)
+}
+
+function eliminar() {
+  if (confirm('¿Eliminar esta rutina?')) store.eliminarRutinaActual()
+}
+</script>
