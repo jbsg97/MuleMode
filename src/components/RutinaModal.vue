@@ -81,7 +81,10 @@
 
         <div style="margin-top:10px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-            <label class="form-label" style="margin:0">🧠 Músculos trabajados <span style="color:var(--text3);font-weight:400">(opcional)</span></label>
+            <label class="form-label" style="margin:0">🧠 Músculos trabajados
+              <span v-if="ex._autoDetected" style="color:var(--accent);font-size:11px;font-weight:400;margin-left:6px">✓ auto</span>
+              <span v-else style="color:var(--text3);font-weight:400"> (opcional)</span>
+            </label>
             <button type="button" style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;padding:0"
               @click="ex._showMap = !ex._showMap">
               {{ ex._showMap ? 'Ocultar' : 'Mostrar' }}
@@ -107,6 +110,7 @@
 import { ref, watch } from 'vue'
 import { useStore, EQUIPO_OPTIONS, MUSCLE_LABELS } from '../store/index.js'
 import MuscleMap from './MuscleMap.vue'
+import { detectarMusculos } from '../data/exercises.js'
 
 const store = useStore()
 const nombre = ref('')
@@ -124,10 +128,13 @@ watch(() => store.rutinaModalVisible, (visible) => {
   }
 })
 
+const detectTimers = {}
+
 function addExercise(ex = null) {
-  exercises.value.push({
+  const entry = {
     _formId: Date.now() + Math.random(),
     _showMap: false,
+    _autoDetected: false,
     id: ex?.id || ('e' + Date.now() + Math.random()),
     nombre: ex?.nombre || '',
     series: ex?.series || 3,
@@ -139,6 +146,25 @@ function addExercise(ex = null) {
     notas: ex?.notas || '',
     descansoRecomendado: ex?.descansoRecomendado || 90,
     musculos: ex?.musculos || [],
+  }
+  exercises.value.push(entry)
+
+  watch(() => entry.nombre, (val) => {
+    clearTimeout(detectTimers[entry._formId])
+    detectTimers[entry._formId] = setTimeout(() => {
+      const match = detectarMusculos(val)
+      if (match) {
+        entry.musculos = [
+          ...match.primario.map(m => ({ muscle: m, nivel: 'primario' })),
+          ...match.secundario.map(m => ({ muscle: m, nivel: 'secundario' })),
+          ...match.terciario.map(m => ({ muscle: m, nivel: 'terciario' })),
+        ]
+        entry._autoDetected = true
+        entry._showMap = true
+      } else {
+        entry._autoDetected = false
+      }
+    }, 600)
   })
 }
 
