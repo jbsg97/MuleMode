@@ -201,7 +201,12 @@ Primary >60% MVC, secondary 30-60%, tertiary <30%.`
     })
     const data = await res.json()
     const text = data?.choices?.[0]?.message?.content || ''
-    const json = JSON.parse(text.replace(/```json?|```/g, '').trim())
+    const raw = text.replace(/```json?|```/g, '').trim()
+    // Fix literal newlines/tabs inside JSON string values (invalid JSON)
+    const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
+      s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' ')
+    )
+    const json = JSON.parse(sanitized)
 
     const filter = (arr) => (arr || []).filter(m => VALID_MUSCLES.includes(m))
     const m = json.musculos || {}
