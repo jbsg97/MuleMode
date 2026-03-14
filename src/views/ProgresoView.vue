@@ -31,34 +31,20 @@
         </div>
       </div>
 
-      <!-- ── Heatmap ────────────────────────────────────── -->
+      <!-- ── Músculos de la semana ──────────────────────── -->
       <div class="card" style="margin:0 16px 12px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <div class="chart-title" style="margin:0">Actividad</div>
-          <div style="font-size:11px;color:var(--text3)">Últimas 13 semanas</div>
-        </div>
-        <div class="heatmap-months">
-          <span v-for="(m, i) in heatmapMonths" :key="i"
-            :style="{ gridColumnStart: m.col }" class="heatmap-month-label">
-            {{ m.label }}
-          </span>
-        </div>
-        <div class="heatmap-grid">
-          <div v-for="(day, i) in heatmapDays" :key="i"
-            class="heatmap-cell"
-            :class="{ 'heatmap-future': day.isFuture }"
-            :style="day.trained ? { background: heatColor(day.vol) } : {}"
-            :title="day.trained ? `${day.date} · ${Math.round(day.vol)} kg` : day.date">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <div class="chart-title" style="margin:0">Músculos esta semana</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button class="week-nav-btn" @click="weekOffset--">‹</button>
+            <span style="font-size:11px;color:var(--text3);min-width:90px;text-align:center">{{ weekLabel }}</span>
+            <button class="week-nav-btn" :disabled="weekOffset >= 0" @click="weekOffset++">›</button>
           </div>
         </div>
-        <div class="heatmap-legend">
-          <span style="color:var(--text3);font-size:10px">Menos</span>
-          <div class="heatmap-cell" style="background:rgba(232,240,58,0.25)"></div>
-          <div class="heatmap-cell" style="background:rgba(232,240,58,0.5)"></div>
-          <div class="heatmap-cell" style="background:rgba(232,240,58,0.75)"></div>
-          <div class="heatmap-cell" style="background:#e8f03a"></div>
-          <span style="color:var(--text3);font-size:10px">Más</span>
+        <div v-if="weekMuscles.length === 0" style="font-size:13px;color:var(--text3);text-align:center;padding:24px 0">
+          Sin entrenamientos esta semana
         </div>
+        <MuscleMap v-else :model-value="weekMuscles" readonly />
       </div>
 
       <!-- ── Records personales ─────────────────────────── -->
@@ -130,6 +116,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import Chart from 'chart.js/auto'
 import { useStore } from '../store/index.js'
+import MuscleMap from '../components/MuscleMap.vue'
 
 const store = useStore()
 const selectedEx = ref('')
@@ -157,57 +144,46 @@ const mesStats = computed(() => {
   }
 })
 
-// ── Heatmap ────────────────────────────────────────────────────
-const heatmapDays = computed(() => {
-  const trainedDates = {}
-  store.historial.forEach(h => {
-    const day = h.fecha.split('T')[0]
-    trainedDates[day] = (trainedDates[day] || 0) + (h.volumen || 0)
-  })
-  const today = new Date(); today.setHours(0, 0, 0, 0)
-  const start = new Date(today)
-  start.setDate(today.getDate() - today.getDay() - 12 * 7)
-  const days = []
-  const cur = new Date(start)
-  while (cur <= today) {
-    const dateStr = cur.toISOString().split('T')[0]
-    days.push({
-      date: dateStr,
-      trained: !!trainedDates[dateStr],
-      vol: trainedDates[dateStr] || 0,
-      isFuture: false,
-    })
-    cur.setDate(cur.getDate() + 1)
-  }
-  return days
+// ── Músculos de la semana ──────────────────────────────────────
+const weekOffset = ref(0) // 0 = semana actual, -1 = semana pasada, etc.
+
+const weekRange = computed(() => {
+  const today = new Date()
+  const dow = today.getDay()
+  const monday = new Date(today)
+  monday.setDate(today.getDate() - (dow === 0 ? 6 : dow - 1) + weekOffset.value * 7)
+  monday.setHours(0, 0, 0, 0)
+  const sunday = new Date(monday)
+  sunday.setDate(monday.getDate() + 6)
+  sunday.setHours(23, 59, 59, 999)
+  return { start: monday, end: sunday }
 })
 
-const heatmapMonths = computed(() => {
-  const months = []
+const weekLabel = computed(() => {
   const meses = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic']
-  let lastMonth = -1
-  heatmapDays.value.forEach((day, i) => {
-    const d = new Date(day.date)
-    const month = d.getMonth()
-    if (month !== lastMonth) {
-      const weekCol = Math.floor(i / 7) + 1
-      months.push({ label: meses[month], col: weekCol })
-      lastMonth = month
-    }
-  })
-  return months
+  const { start, end } = weekRange.value
+  const s = `${start.getDate()} ${meses[start.getMonth()]}`
+  const e = `${end.getDate()} ${meses[end.getMonth()]}`
+  return weekOffset.value === 0 ? 'Esta semana' : `${s} – ${e}`
 })
 
-function heatColor(vol) {
-  const vols = store.historial.map(h => h.volumen || 0).filter(v => v > 0)
-  if (vols.length === 0) return 'rgba(232,240,58,0.6)'
-  const max = Math.max(...vols)
-  const intensity = Math.min(1, vol / max)
-  if (intensity < 0.25) return 'rgba(232,240,58,0.25)'
-  if (intensity < 0.5) return 'rgba(232,240,58,0.5)'
-  if (intensity < 0.75) return 'rgba(232,240,58,0.75)'
-  return '#e8f03a'
-}
+const weekMuscles = computed(() => {
+  const { start, end } = weekRange.value
+  const nivelOrder = { primario: 0, secundario: 1, terciario: 2 }
+  const map = {}
+  store.historial
+    .filter(h => { const d = new Date(h.fecha); return d >= start && d <= end })
+    .forEach(h => {
+      ;(h.ejercicios || []).forEach(e => {
+        ;(e.musculos || []).forEach(m => {
+          const muscle = typeof m === 'string' ? m : m.muscle
+          const nivel  = typeof m === 'string' ? 'primario' : m.nivel
+          if (!map[muscle] || nivelOrder[nivel] < nivelOrder[map[muscle]]) map[muscle] = nivel
+        })
+      })
+    })
+  return Object.entries(map).map(([muscle, nivel]) => ({ muscle, nivel }))
+})
 
 // ── Records personales ─────────────────────────────────────────
 const prs = computed(() => {
@@ -397,42 +373,23 @@ watch(() => store.historial.length, () => { nextTick(buildVolChart) })
   margin-top: 3px;
 }
 
-/* Heatmap */
-.heatmap-months {
-  display: grid;
-  grid-template-columns: repeat(13, 1fr);
-  margin-bottom: 4px;
-}
-.heatmap-month-label {
-  font-size: 9px;
-  color: var(--text3);
-  text-transform: uppercase;
-}
-.heatmap-grid {
-  display: grid;
-  grid-template-columns: repeat(13, 1fr);
-  grid-template-rows: repeat(7, 1fr);
-  grid-auto-flow: column;
-  gap: 3px;
-}
-.heatmap-cell {
-  aspect-ratio: 1;
-  border-radius: 2px;
+/* Week nav */
+.week-nav-btn {
   background: var(--bg3);
-}
-.heatmap-future { opacity: 0.3; }
-.heatmap-legend {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text2);
+  font-size: 18px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
-  gap: 4px;
-  margin-top: 8px;
-  justify-content: flex-end;
+  justify-content: center;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0;
 }
-.heatmap-legend .heatmap-cell {
-  width: 12px;
-  height: 12px;
-  aspect-ratio: unset;
-}
+.week-nav-btn:disabled { opacity: 0.3; cursor: default; }
 
 /* PRs */
 .pr-row {
