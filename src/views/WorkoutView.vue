@@ -78,7 +78,23 @@
           <div v-if="ex.descansoRecomendado" class="ex-cues">
             <span>😴 {{ ex.descansoRecomendado }}s descanso</span>
           </div>
-          <div v-if="ex.notas" class="ex-cues" style="white-space:pre-line;line-height:1.6">{{ ex.notas }}</div>
+          <template v-if="ex.notas">
+            <template v-if="typeof ex.notas === 'object'">
+              <div v-if="ex.notas.respiracion" class="ex-cues">
+                <div class="ex-cues-label">Respiración</div>
+                {{ ex.notas.respiracion }}
+              </div>
+              <div v-if="ex.notas.forma" class="ex-cues">
+                <div class="ex-cues-label">Forma correcta</div>
+                {{ ex.notas.forma }}
+              </div>
+              <div v-if="ex.notas.tips" class="ex-cues">
+                <div class="ex-cues-label">Si no lo sientes</div>
+                {{ ex.notas.tips }}
+              </div>
+            </template>
+            <div v-else class="ex-cues">{{ ex.notas }}</div>
+          </template>
           <textarea class="notes-area" placeholder="Notas del ejercicio..."
             :value="ex.notaSession || ''"
             @change="store.updateExNota(ei, $event.target.value)"></textarea>

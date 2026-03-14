@@ -140,7 +140,8 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 .series-check.done { background: var(--accent); border-color: var(--accent); color: #0e0e0e; }
 .add-serie-btn { width: 100%; padding: 10px; background: none; border: none; border-top: 1px solid var(--border); color: var(--text3); font-family: 'DM Sans', sans-serif; font-size: 13px; cursor: pointer; }
 .add-serie-btn:active { color: var(--accent); }
-.ex-cues { padding: 8px 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text3); line-height: 1.5; font-style: italic; }
+.ex-cues { padding: 8px 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text2); line-height: 1.6; }
+.ex-cues-label { font-size: 10px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px; }
 .notes-area { width: 100%; background: none; border: none; border-top: 1px solid var(--border); padding: 10px 12px; color: var(--text2); font-family: 'DM Sans', sans-serif; font-size: 13px; resize: none; min-height: 44px; }
 .notes-area:focus { outline: none; color: var(--text); }
 

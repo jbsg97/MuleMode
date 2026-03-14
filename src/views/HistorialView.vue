@@ -58,8 +58,7 @@
                 </tbody>
               </table>
               <div class="history-ex-footer">
-              {{ exFooter(e) }}{{ e.notas ? ` · "${e.notas}"` : '' }}
-              <span v-if="e.descansoSeg" style="color:var(--text3)"> · 😴 {{ e.descansoSeg }}s descanso</span>
+              {{ exFooter(e) }}<span v-if="e.descansoSeg" style="color:var(--text3)"> · 😴 {{ e.descansoSeg }}s descanso</span>
             </div>
             </template>
           </template>

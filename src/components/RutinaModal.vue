@@ -100,11 +100,25 @@
             v-model="ex.video" style="font-size:12px">
         </div>
 
-        <div>
-          <label class="form-label">📝 Notas / cues <span style="color:var(--text3);font-weight:400">(opcional)</span></label>
-          <textarea class="form-input" v-model="ex.notas" rows="5"
-            placeholder="Ej: 💨 Inhala al bajar, exhala al subir"
-            style="resize:vertical;font-size:13px;line-height:1.6;white-space:pre-line"></textarea>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div>
+            <label class="form-label">Respiración</label>
+            <textarea class="form-input" v-model="ex.notas.respiracion" rows="2"
+              placeholder="Cuándo inhalar y exhalar durante el movimiento"
+              style="resize:none;font-size:13px;line-height:1.5"></textarea>
+          </div>
+          <div>
+            <label class="form-label">Forma correcta</label>
+            <textarea class="form-input" v-model="ex.notas.forma" rows="3"
+              placeholder="Puntos clave de técnica para realizarlo correctamente"
+              style="resize:none;font-size:13px;line-height:1.5"></textarea>
+          </div>
+          <div>
+            <label class="form-label">Si no lo sientes</label>
+            <textarea class="form-input" v-model="ex.notas.tips" rows="2"
+              placeholder="Qué hacer si no sientes el músculo objetivo"
+              style="resize:none;font-size:13px;line-height:1.5"></textarea>
+          </div>
         </div>
 
         <div style="margin-top:10px">
@@ -144,6 +158,12 @@ const VALID_MUSCLES = ['chest','obliques','abs','biceps','triceps','front-deltoi
 
 const EQUIPO_LABELS = { kb: 'kettlebell', sb: 'sandbag', bb: 'barbell', db: 'dumbbell', bw: 'bodyweight', band: 'resistance band', trx: 'TRX' }
 
+function toNotasObj(notas) {
+  if (!notas) return { respiracion: '', forma: '', tips: '' }
+  if (typeof notas === 'object') return { respiracion: notas.respiracion || '', forma: notas.forma || '', tips: notas.tips || '' }
+  return { respiracion: '', forma: notas, tips: '' } // legacy string
+}
+
 const store = useStore()
 const nombre = ref('')
 const exercises = ref([])
@@ -172,16 +192,19 @@ async function generarConIA(ex) {
   const prompt = `You are an experienced strength coach. For the exercise "${ex.nombre}"${equipoStr} performed by a ${generoCtx}, respond ONLY with valid JSON (no markdown, no extra text):
 {
   "musculos": {"primario":[],"secundario":[],"terciario":[]},
-  "notas": "string",
+  "respiracion": "string",
+  "forma": "string",
+  "tips": "string",
   "busqueda_video": "string"
 }
 
-For "notas": write in Spanish using "tú", as a real experienced coach who knows this athlete. Use | as separator between lines (NOT line breaks). Write 4 lines covering: breathing timing, 2 technique points, and what to do if they don't feel the muscle. Rules: no emojis, no bullet points, no headers, no template phrasing like "recuerda" or "asegúrate" — just direct, specific, natural coaching cues that sound different every time. Each line should feel handwritten, not generated.${generoTip}
-
-For "busqueda_video": a specific search query in Spanish, example format: Como hacer peso muerto correctamente para hombre. Include equipment if relevant. Must be a plain string value with no special characters.
-
-For musculos use ONLY these IDs: ${VALID_MUSCLES.join(', ')}.
-Primary >60% MVC, secondary 30-60%, tertiary <30%.`
+Rules for all text fields — write in Spanish using "tú", direct coach tone, no emojis, no bullet symbols, no generic filler words like "recuerda" or "asegúrate":
+- "respiracion": one sentence, exactly when to inhale and exhale tied to the movement of THIS exercise.
+- "forma": 2 sentences, the most critical technique details specific to THIS exercise to perform it correctly and avoid injury.
+- "tips": 1-2 sentences, what to do if they are not feeling the target muscle working — specific cue for THIS exercise.
+${generoTip}
+For "busqueda_video": search query in Spanish like: Como hacer peso muerto correctamente para hombre. Plain text, no special characters.
+For musculos use ONLY: ${VALID_MUSCLES.join(', ')}. Primary >60% MVC, secondary 30-60%, tertiary <30%.`
 
   ex._generating = true
   try {
@@ -210,8 +233,7 @@ Primary >60% MVC, secondary 30-60%, tertiary <30%.`
       // Fallback: extract each field with regex
       const str = (key) => { const m = raw.match(new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*?)"`)); return m?.[1] || '' }
       const obj = (key) => { try { const m = raw.match(new RegExp(`"${key}"\\s*:(\\s*\\{[^}]+\\})`)); return m ? JSON.parse(m[1]) : {} } catch { return {} } }
-      const m = obj('musculos')
-      json = { musculos: m, notas: str('notas'), busqueda_video: str('busqueda_video') }
+      json = { musculos: obj('musculos'), respiracion: str('respiracion'), forma: str('forma'), tips: str('tips'), busqueda_video: str('busqueda_video') }
     }
 
     const filter = (arr) => (arr || []).filter(m => VALID_MUSCLES.includes(m))
@@ -221,7 +243,9 @@ Primary >60% MVC, secondary 30-60%, tertiary <30%.`
       ...filter(m.secundario).map(muscle => ({ muscle, nivel: 'secundario' })),
       ...filter(m.terciario).map(muscle => ({ muscle, nivel: 'terciario' })),
     ]
-    if (json.notas) ex.notas = json.notas.replace(/\s*\|\s*/g, '\n')
+    if (json.respiracion || json.forma || json.tips) {
+      ex.notas = { respiracion: json.respiracion || '', forma: json.forma || '', tips: json.tips || '' }
+    }
     if (json.busqueda_video) ex._busquedaVideo = json.busqueda_video
     ex._iaDetected = true
     ex._showMap = true
@@ -248,7 +272,7 @@ function addExercise(ex = null) {
     tipoMedida: ex?.tipoMedida || 'reps',
     video: ex ? (store.videos[ex.id] || ex.video || '') : '',
     musclewiki: ex?.musclewiki || '',
-    notas: ex?.notas || '',
+    notas: toNotasObj(ex?.notas),
     descansoRecomendado: ex?.descansoRecomendado || 90,
     musculos: ex?.musculos || [],
   })
