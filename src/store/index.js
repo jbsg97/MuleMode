@@ -169,11 +169,12 @@ export const useStore = defineStore('mulemode', {
     },
 
     save() {
-      localforage.setItem('mulemode_v1', {
+      const data = JSON.parse(JSON.stringify({
         rutinas: this.rutinas,
         historial: this.historial,
         videos: this.videos,
-      }).catch(e => console.error('save error', e))
+      }))
+      localforage.setItem('mulemode_v1', data).catch(e => console.error('save error', e))
     },
 
     // ── RUTINAS ──────────────────────────────────────────────────
