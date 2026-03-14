@@ -47,13 +47,13 @@
                 <input v-if="ex.equipo === 'band'"
                   class="series-input" type="text" placeholder="Color"
                   :value="s.peso"
-                  @change="store.updateSerie(ei, si, 'peso', $event.target.value)"
+                  @input="store.updateSerie(ei, si, 'peso', $event.target.value)"
                   style="width:64px">
                 <input v-else
                   class="series-input" type="number"
                   :placeholder="store.getLastPeso(ex.nombre, si) ? store.getLastPeso(ex.nombre, si) + 'kg' : '—'"
                   :value="s.peso"
-                  @change="store.updateSerie(ei, si, 'peso', $event.target.value)"
+                  @input="store.updateSerie(ei, si, 'peso', $event.target.value)"
                   min="0" step="0.5">
               </td>
               <td>
@@ -61,7 +61,7 @@
                   :type="ex.tipoMedida === 'time' || ex.tipoMedida === 'dist' ? 'number' : 'text'"
                   :placeholder="ex.tipoMedida === 'time' ? 'seg' : ex.tipoMedida === 'dist' ? 'm' : s.reps"
                   :value="s.reps"
-                  @change="store.updateSerie(ei, si, 'reps', $event.target.value)"
+                  @input="store.updateSerie(ei, si, 'reps', $event.target.value)"
                   style="width:56px">
               </td>
               <td>
