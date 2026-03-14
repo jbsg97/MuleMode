@@ -81,6 +81,7 @@ export const useStore = defineStore('mulemode', {
     rutinas: [],
     historial: [],
     videos: {},
+    geminiKey: '',
     workout: null,
     pendingRegistro: null,
     // timer
@@ -175,9 +176,10 @@ export const useStore = defineStore('mulemode', {
         const snap = await getDoc(doc(db, 'users', uid))
         if (snap.exists()) {
           const d = snap.data()
-          this.rutinas  = d.rutinas  || defaultRutinas()
+          this.rutinas   = d.rutinas  || defaultRutinas()
           this.historial = d.historial || []
-          this.videos   = d.videos   || {}
+          this.videos    = d.videos   || {}
+          this.geminiKey = d.geminiKey || ''
         } else {
           this.rutinas  = defaultRutinas()
           this.historial = []
@@ -194,9 +196,10 @@ export const useStore = defineStore('mulemode', {
     save() {
       if (!this.uid) return
       const data = JSON.parse(JSON.stringify({
-        rutinas:   this.rutinas,
-        historial: this.historial,
-        videos:    this.videos,
+        rutinas:    this.rutinas,
+        historial:  this.historial,
+        videos:     this.videos,
+        geminiKey:  this.geminiKey,
       }))
       setDoc(doc(db, 'users', this.uid), data).catch(e => console.error('save error', e))
     },

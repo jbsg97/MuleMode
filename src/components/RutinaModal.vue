@@ -82,7 +82,8 @@
         <div style="margin-top:10px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
             <label class="form-label" style="margin:0">🧠 Músculos trabajados
-              <span v-if="ex._autoDetected" style="color:var(--accent);font-size:11px;font-weight:400;margin-left:6px">✓ auto</span>
+              <span v-if="ex._detecting" style="color:var(--text3);font-size:11px;font-weight:400;margin-left:6px">⏳ detectando...</span>
+              <span v-else-if="ex._autoDetected" style="color:var(--accent);font-size:11px;font-weight:400;margin-left:6px">✓ Gemini</span>
               <span v-else style="color:var(--text3);font-weight:400"> (opcional)</span>
             </label>
             <button type="button" style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;padding:0"
@@ -110,7 +111,10 @@
 import { ref, watch } from 'vue'
 import { useStore, EQUIPO_OPTIONS, MUSCLE_LABELS } from '../store/index.js'
 import MuscleMap from './MuscleMap.vue'
-import { detectarMusculos } from '../data/exercises.js'
+
+const VALID_MUSCLES = ['chest','obliques','abs','biceps','triceps','front-deltoids',
+  'abductors','quadriceps','calves','forearm','trapezius','upper-back','lower-back',
+  'back-deltoids','gluteal','adductor','hamstring','left-soleus']
 
 const store = useStore()
 const nombre = ref('')
@@ -130,11 +134,40 @@ watch(() => store.rutinaModalVisible, (visible) => {
 
 const detectTimers = {}
 
+async function detectarConGemini(nombre) {
+  const key = store.geminiKey
+  if (!key || nombre.trim().length < 3) return null
+  const prompt = `Given the exercise "${nombre}", identify which muscle groups are worked.
+Respond ONLY with valid JSON in this exact format (no markdown, no explanation):
+{"primario":[],"secundario":[],"terciario":[]}
+Use ONLY these muscle IDs: ${VALID_MUSCLES.join(', ')}.
+Primary = >60% MVC activation, secondary = 30-60%, tertiary = <30%.`
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+      }
+    )
+    const data = await res.json()
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+    const json = JSON.parse(text.replace(/```json?|```/g, '').trim())
+    const filter = (arr) => (arr || []).filter(m => VALID_MUSCLES.includes(m))
+    return { primario: filter(json.primario), secundario: filter(json.secundario), terciario: filter(json.terciario) }
+  } catch {
+    return null
+  }
+}
+
 function addExercise(ex = null) {
   const entry = {
     _formId: Date.now() + Math.random(),
     _showMap: false,
     _autoDetected: false,
+    _detecting: false,
     id: ex?.id || ('e' + Date.now() + Math.random()),
     nombre: ex?.nombre || '',
     series: ex?.series || 3,
@@ -150,10 +183,14 @@ function addExercise(ex = null) {
   exercises.value.push(entry)
 
   watch(() => entry.nombre, (val) => {
+    entry._autoDetected = false
     clearTimeout(detectTimers[entry._formId])
-    detectTimers[entry._formId] = setTimeout(() => {
-      const match = detectarMusculos(val)
-      if (match) {
+    if (!store.geminiKey || val.trim().length < 3) return
+    detectTimers[entry._formId] = setTimeout(async () => {
+      entry._detecting = true
+      const match = await detectarConGemini(val)
+      entry._detecting = false
+      if (match && (match.primario.length || match.secundario.length)) {
         entry.musculos = [
           ...match.primario.map(m => ({ muscle: m, nivel: 'primario' })),
           ...match.secundario.map(m => ({ muscle: m, nivel: 'secundario' })),
@@ -161,10 +198,8 @@ function addExercise(ex = null) {
         ]
         entry._autoDetected = true
         entry._showMap = true
-      } else {
-        entry._autoDetected = false
       }
-    }, 600)
+    }, 800)
   })
 }
 

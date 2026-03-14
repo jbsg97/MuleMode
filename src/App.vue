@@ -14,12 +14,14 @@
     <ProgresoView v-else-if="currentPage === 'progreso'" />
     <WorkoutView v-else-if="currentPage === 'workout'" @finish="onWorkoutFinish" />
 
-    <BottomNav v-if="currentPage !== 'workout'" :current="currentPage" @navigate="currentPage = $event" />
+    <BottomNav v-if="currentPage !== 'workout'" :current="currentPage"
+      @navigate="currentPage = $event" @settings="settingsVisible = true" />
 
     <RestTimerOverlay />
     <SummaryOverlay />
     <VideoModal />
     <RutinaModal />
+    <SettingsModal :visible="settingsVisible" @close="settingsVisible = false" />
 
     <div class="toast" :class="{ show: store.toastVisible }">{{ store.toastMessage }}</div>
   </div>
@@ -40,9 +42,11 @@ import RestTimerOverlay from './components/RestTimerOverlay.vue'
 import SummaryOverlay from './components/SummaryOverlay.vue'
 import VideoModal from './components/VideoModal.vue'
 import RutinaModal from './components/RutinaModal.vue'
+import SettingsModal from './components/SettingsModal.vue'
 
-const store       = useStore()
-const currentPage = ref('rutinas')
+const store          = useStore()
+const currentPage    = ref('rutinas')
+const settingsVisible = ref(false)
 
 watch(() => store.workout, (newVal, oldVal) => {
   if (newVal) {
