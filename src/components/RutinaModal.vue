@@ -89,9 +89,9 @@
 
         <div>
           <label class="form-label">📝 Notas / cues <span style="color:var(--text3);font-weight:400">(opcional)</span></label>
-          <textarea class="form-input" v-model="ex.notas" rows="3"
-            placeholder="Ej: Exhalar al subir · No doblar la espalda · Talones pegados al suelo"
-            style="resize:vertical;font-size:13px;line-height:1.4"></textarea>
+          <textarea class="form-input" v-model="ex.notas" rows="5"
+            placeholder="Ej: 💨 Inhala al bajar, exhala al subir"
+            style="resize:vertical;font-size:13px;line-height:1.6;white-space:pre-line"></textarea>
         </div>
 
         <div style="margin-top:10px">
@@ -152,14 +152,19 @@ async function generarConIA(ex) {
   if (!key || !ex.nombre.trim()) return
 
   const equipoStr = EQUIPO_LABELS[ex.equipo] ? ` (with ${EQUIPO_LABELS[ex.equipo]})` : ''
-  const prompt = `For the exercise "${ex.nombre}"${equipoStr}, respond ONLY with valid JSON (no markdown):
+  const prompt = `You are an experienced strength coach. For the exercise "${ex.nombre}"${equipoStr}, respond ONLY with valid JSON (no markdown, no extra text):
 {
   "musculos": {"primario":[],"secundario":[],"terciario":[]},
-  "notas": "string in Spanish with 4-6 specific cues separated by · covering: (1) exact breathing timing e.g. 'Inhala al bajar, exhala al empujar', (2) key form points to avoid injury, (3) 1-2 tips if you don't feel the target muscle working or want to improve mind-muscle connection"
+  "notas": "string"
 }
+
+For "notas": write exactly in this format with real line breaks (\\n) between sections, in Spanish using "tú", like a coach talking directly to the athlete — vary your wording, be specific to THIS exercise, not generic:
+💨 [Breathing: exact moment to inhale and exhale tied to the movement phase]
+📐 [Form: 2 specific technique points unique to this exercise to avoid injury]
+🎯 [Feel: 1-2 tips for what to do if they don't feel the right muscle working]
+
 For musculos use ONLY these IDs: ${VALID_MUSCLES.join(', ')}.
-Primary >60% MVC, secondary 30-60%, tertiary <30%.
-Be specific and practical, not generic.`
+Primary >60% MVC, secondary 30-60%, tertiary <30%.`
 
   ex._generating = true
   try {

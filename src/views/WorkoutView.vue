@@ -75,11 +75,10 @@
           </table>
           <button class="add-serie-btn" @click="store.addSerie(ei)">+ Serie extra</button>
           <MuscleMap v-if="showMap[ei]" :model-value="ex.musculos || []" readonly style="padding:8px 0" />
-          <div v-if="ex.notas || ex.descansoRecomendado" class="ex-cues">
-            <span v-if="ex.descansoRecomendado">😴 {{ ex.descansoRecomendado }}s descanso</span>
-            <span v-if="ex.notas && ex.descansoRecomendado"> · </span>
-            <span v-if="ex.notas">📝 {{ ex.notas }}</span>
+          <div v-if="ex.descansoRecomendado" class="ex-cues">
+            <span>😴 {{ ex.descansoRecomendado }}s descanso</span>
           </div>
+          <div v-if="ex.notas" class="ex-cues" style="white-space:pre-line;line-height:1.6">{{ ex.notas }}</div>
           <textarea class="notes-area" placeholder="Notas del ejercicio..."
             :value="ex.notaSession || ''"
             @change="store.updateExNota(ei, $event.target.value)"></textarea>
