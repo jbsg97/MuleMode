@@ -36,6 +36,11 @@
         </div>
 
         <div v-if="openDetails[h.id]" class="history-detail open">
+          <!-- Mapa muscular combinado de la sesión -->
+          <div v-if="sessionMuscles(h).length" style="padding:8px 0 4px">
+            <div style="font-size:11px;color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:6px">Músculos trabajados</div>
+            <MuscleMap :model-value="sessionMuscles(h)" readonly />
+          </div>
           <template v-for="e in h.ejercicios" :key="e.nombre">
             <template v-if="doneSeries(e).length > 0">
               <div class="history-ex-name">
@@ -67,6 +72,7 @@
 <script setup>
 import { reactive } from 'vue'
 import { useStore } from '../store/index.js'
+import MuscleMap from '../components/MuscleMap.vue'
 
 const store = useStore()
 const openDetails = reactive({})
@@ -113,6 +119,10 @@ function medLabel(e) {
   if (e.tipoMedida === 'time') return 'seg'
   if (e.tipoMedida === 'dist') return 'm'
   return 'reps'
+}
+
+function sessionMuscles(h) {
+  return [...new Set((h.ejercicios || []).flatMap(e => e.musculos || []))]
 }
 
 function exFooter(e) {

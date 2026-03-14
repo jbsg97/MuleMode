@@ -44,27 +44,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:modelValue'])
 
-const LABELS = {
-  'chest':          'Pecho',
-  'obliques':       'Oblicuos',
-  'abs':            'Abdomen',
-  'biceps':         'Bíceps',
-  'triceps':        'Tríceps',
-  'neck':           'Cuello',
-  'front-deltoids': 'Hombros (front.)',
-  'abductors':      'Abductores',
-  'quadriceps':     'Cuádriceps',
-  'calves':         'Gemelos',
-  'forearm':        'Antebrazos',
-  'trapezius':      'Trapecio',
-  'upper-back':     'Dorsales',
-  'lower-back':     'Lumbar',
-  'back-deltoids':  'Hombros (post.)',
-  'gluteal':        'Glúteos',
-  'adductor':       'Aductores',
-  'hamstring':      'Isquiotibiales',
-  'left-soleus':    'Sóleos',
-}
+import { MUSCLE_LABELS as LABELS } from '../store/index.js'
 
 const NON_SELECTABLE = new Set(['head', 'knees', 'right-soleus'])
 

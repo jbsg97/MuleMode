@@ -53,7 +53,7 @@
           <div class="routine-badge">{{ r.nombre.charAt(0).toUpperCase() }}</div>
           <div class="routine-info">
             <div class="routine-name">{{ r.nombre }}</div>
-            <div class="routine-meta">{{ r.desc || '' }} · {{ r.ejercicios.length }} ejercicios</div>
+            <div class="routine-meta">{{ routineDesc(r) }} · {{ r.ejercicios.length }} ejercicios</div>
           </div>
           <div style="display:flex;gap:8px;align-items:center">
             <button class="icon-btn icon-btn--edit" @click.stop="store.editarRutina(r.id)" title="Editar">✎</button>
@@ -63,18 +63,23 @@
 
         <div v-if="openCards[r.id]" class="routine-exercises">
           <div v-for="e in r.ejercicios" :key="e.id" class="ex-row">
-            <div>
-              <span class="ex-row-name">{{ e.nombre }}</span>
-              <span v-if="equipoMap[e.equipo]" class="ex-tag"
-                :style="{ background: equipoMap[e.equipo].bg, color: equipoMap[e.equipo].color }">
-                {{ equipoMap[e.equipo].label }}
-              </span>
-              <a v-if="e.musclewiki" :href="e.musclewiki" target="_blank"
-                style="font-size:11px;padding:2px 8px;border-radius:20px;background:#1a2a1a;color:#44cc88;text-decoration:none;margin-left:4px;">
-                💪 MuscleWiki
-              </a>
+            <div style="flex:1;min-width:0">
+              <div>
+                <span class="ex-row-name">{{ e.nombre }}</span>
+                <span v-if="equipoMap[e.equipo]" class="ex-tag"
+                  :style="{ background: equipoMap[e.equipo].bg, color: equipoMap[e.equipo].color }">
+                  {{ equipoMap[e.equipo].label }}
+                </span>
+                <a v-if="e.musclewiki" :href="e.musclewiki" target="_blank"
+                  style="font-size:11px;padding:2px 8px;border-radius:20px;background:#1a2a1a;color:#44cc88;text-decoration:none;margin-left:4px;">
+                  💪 MuscleWiki
+                </a>
+              </div>
+              <div v-if="e.musculos && e.musculos.length" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
+                <span v-for="m in e.musculos" :key="m" class="muscle-tag">{{ MUSCLE_LABELS[m] || m }}</span>
+              </div>
             </div>
-            <span class="ex-row-sets">{{ e.series }}×{{ e.reps }}</span>
+            <span class="ex-row-sets" style="flex-shrink:0">{{ e.series }}×{{ e.reps }}</span>
           </div>
           <div style="padding:12px 16px">
             <button class="btn btn-accent btn-full" @click="store.iniciarEntrenamiento(r.id)">
@@ -92,7 +97,7 @@
 
 <script setup>
 import { reactive } from 'vue'
-import { useStore, EQUIPO_MAP } from '../store/index.js'
+import { useStore, EQUIPO_MAP, MUSCLE_LABELS } from '../store/index.js'
 
 const store = useStore()
 const equipoMap = EQUIPO_MAP
@@ -102,5 +107,11 @@ function toggleCard(id) {
   const wasOpen = openCards[id]
   Object.keys(openCards).forEach(k => { openCards[k] = false })
   openCards[id] = !wasOpen
+}
+
+function routineDesc(r) {
+  const muscles = [...new Set(r.ejercicios.flatMap(e => e.musculos || []))]
+  if (muscles.length) return muscles.map(m => MUSCLE_LABELS[m] || m).join(' · ')
+  return r.desc || ''
 }
 </script>

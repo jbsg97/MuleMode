@@ -12,6 +12,28 @@ export const EQUIPO_MAP = {
   'trx':  { label: 'TRX',         color: '#ffcc44', bg: '#2e2a1a' },
 }
 
+export const MUSCLE_LABELS = {
+  'chest':          'Pecho',
+  'obliques':       'Oblicuos',
+  'abs':            'Abdomen',
+  'biceps':         'Bíceps',
+  'triceps':        'Tríceps',
+  'neck':           'Cuello',
+  'front-deltoids': 'Hombros (front.)',
+  'abductors':      'Abductores',
+  'quadriceps':     'Cuádriceps',
+  'calves':         'Gemelos',
+  'forearm':        'Antebrazos',
+  'trapezius':      'Trapecio',
+  'upper-back':     'Dorsales',
+  'lower-back':     'Lumbar',
+  'back-deltoids':  'Hombros (post.)',
+  'gluteal':        'Glúteos',
+  'adductor':       'Aductores',
+  'hamstring':      'Isquiotibiales',
+  'left-soleus':    'Sóleos',
+}
+
 export const EQUIPO_OPTIONS = [
   ['', '—'],
   ['kb', 'Kettlebell (KB)'],
@@ -285,6 +307,7 @@ export const useStore = defineStore('mulemode', {
           tipoMedida: e.tipoMedida || 'reps',
           notas: e.notaSession || '',
           descansoSeg: e.descansoRecomendado || 90,
+          musculos: e.musculos || [],
           series: e.series,
           pr: e.pr || [],
         })),
