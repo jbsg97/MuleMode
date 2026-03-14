@@ -182,7 +182,7 @@ For "notas": write in Spanish using "tú", like a coach talking directly to the 
 🎯 [1-2 tips if they don't feel the target muscle — specific to this exercise]
 ${generoTip}Vary your wording naturally, never use generic or template-like language.
 
-For "busqueda_video": write the best YouTube/TikTok search query in Spanish to find a short tutorial for this exercise${generoEs ? ` for a ${generoEs}` : ''}. Keep it under 8 words, no quotes.
+For "busqueda_video": write a specific YouTube/TikTok search query in Spanish to find a short tutorial. Follow this pattern: "Cómo hacer [exercise name] correctamente${generoEs ? ` para ${generoEs}` : ''}" or "Técnica correcta [exercise name]${generoEs ? ` ${generoEs}` : ''}". Be specific, include the equipment if relevant. No quotes in the output.
 
 For musculos use ONLY these IDs: ${VALID_MUSCLES.join(', ')}.
 Primary >60% MVC, secondary 30-60%, tertiary <30%.`
