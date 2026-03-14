@@ -187,13 +187,12 @@ export const useStore = defineStore('mulemode', {
       this.rutinaModalVisible = true
     },
 
-    guardarRutina(nombre, desc, ejercicios, descansoRecomendado) {
-      const descanso = parseInt(descansoRecomendado) || 90
+    guardarRutina(nombre, desc, ejercicios) {
       if (this.editingRutinaId) {
         const idx = this.rutinas.findIndex(r => r.id === this.editingRutinaId)
-        if (idx !== -1) this.rutinas[idx] = { ...this.rutinas[idx], nombre, desc, ejercicios, descansoRecomendado: descanso }
+        if (idx !== -1) this.rutinas[idx] = { ...this.rutinas[idx], nombre, desc, ejercicios }
       } else {
-        this.rutinas.push({ id: 'r' + Date.now(), nombre, desc, ejercicios, descansoRecomendado: descanso })
+        this.rutinas.push({ id: 'r' + Date.now(), nombre, desc, ejercicios })
       }
       this.save()
       this.rutinaModalVisible = false
@@ -227,7 +226,7 @@ export const useStore = defineStore('mulemode', {
           })),
         })),
       }
-      this.restTotal = rutina.descansoRecomendado || 90
+      this.restTotal = 90
       this.wkElapsed = 0
       if (this.wkInterval) clearInterval(this.wkInterval)
       this.wkInterval = setInterval(() => { this.wkElapsed++ }, 1000)
@@ -248,7 +247,7 @@ export const useStore = defineStore('mulemode', {
           if (!ex.pr) ex.pr = []
           ex.pr.push(s.peso)
         }
-        this.iniciarDescanso()
+        this.iniciarDescanso(ex.descansoRecomendado || 90)
       }
     },
 
@@ -277,12 +276,12 @@ export const useStore = defineStore('mulemode', {
         duracion,
         volumen: vol,
         prs,
-        descansoSeg: this.restTotal,
         ejercicios: this.workout.ejercicios.map(e => ({
           nombre: e.nombre,
           equipo: e.equipo || '',
           tipoMedida: e.tipoMedida || 'reps',
           notas: e.notaSession || '',
+          descansoSeg: e.descansoRecomendado || 90,
           series: e.series,
           pr: e.pr || [],
         })),

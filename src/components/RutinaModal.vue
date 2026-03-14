@@ -14,11 +14,6 @@
         <label class="form-label">Descripción (opcional)</label>
         <input class="form-input" v-model="desc" placeholder="Ej: Pecho · Hombros · Core">
       </div>
-      <div class="form-group">
-        <label class="form-label">Descanso recomendado entre series (seg)</label>
-        <input class="form-input" type="number" min="10" max="600" step="5"
-          v-model.number="descansoRecomendado" placeholder="90">
-      </div>
 
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div class="form-label" style="margin:0">Ejercicios</div>
@@ -55,13 +50,20 @@
           </div>
         </div>
 
-        <div style="margin-bottom:10px">
-          <label class="form-label">Tipo de medida</label>
-          <select class="form-select" v-model="ex.tipoMedida">
-            <option value="reps">Repeticiones</option>
-            <option value="time">Tiempo (segundos)</option>
-            <option value="dist">Distancia (metros)</option>
-          </select>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+          <div>
+            <label class="form-label">Tipo de medida</label>
+            <select class="form-select" v-model="ex.tipoMedida">
+              <option value="reps">Repeticiones</option>
+              <option value="time">Tiempo (seg)</option>
+              <option value="dist">Distancia (m)</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Descanso entre series (seg)</label>
+            <input class="form-input" type="number" min="10" max="600" step="5"
+              v-model.number="ex.descansoRecomendado" placeholder="90">
+          </div>
         </div>
 
         <div class="form-group">
@@ -99,7 +101,6 @@ import { useStore, EQUIPO_OPTIONS } from '../store/index.js'
 const store = useStore()
 const nombre = ref('')
 const desc = ref('')
-const descansoRecomendado = ref(90)
 const exercises = ref([])
 
 watch(() => store.rutinaModalVisible, (visible) => {
@@ -107,7 +108,6 @@ watch(() => store.rutinaModalVisible, (visible) => {
   const r = store.editingRutinaId ? store.rutinas.find(x => x.id === store.editingRutinaId) : null
   nombre.value = r?.nombre || ''
   desc.value = r?.desc || ''
-  descansoRecomendado.value = r?.descansoRecomendado || 90
   exercises.value = []
   if (r) {
     r.ejercicios.forEach(e => addExercise(e))
@@ -128,6 +128,7 @@ function addExercise(ex = null) {
     video: ex ? (store.videos[ex.id] || ex.video || '') : '',
     musclewiki: ex?.musclewiki || '',
     notas: ex?.notas || '',
+    descansoRecomendado: ex?.descansoRecomendado || 90,
   })
 }
 
@@ -151,10 +152,11 @@ function guardar() {
         tipoMedida: e.tipoMedida || 'reps',
         musclewiki: e.musclewiki || '',
         notas: e.notas || '',
+        descansoRecomendado: parseInt(e.descansoRecomendado) || 90,
       }
     })
   if (ejercicios.length === 0) { store.showToast('Agrega al menos un ejercicio'); return }
-  store.guardarRutina(nombre.value.trim(), desc.value.trim(), ejercicios, descansoRecomendado.value)
+  store.guardarRutina(nombre.value.trim(), desc.value.trim(), ejercicios)
 }
 
 function eliminar() {

@@ -28,7 +28,6 @@
               <div class="history-chip">⏱ <span>{{ formatDur(h.duracion) }}</span></div>
               <div class="history-chip">📦 <span>{{ seriesDone(h) }} series</span></div>
               <div v-if="volStr(h)" class="history-chip">⚡ <span>{{ volStr(h) }} kg</span></div>
-              <div v-if="h.descansoSeg" class="history-chip">😴 <span>{{ h.descansoSeg }}s descanso</span></div>
             </div>
           </div>
           <button @click.stop="confirmarBorrar(h.id)"
@@ -54,12 +53,12 @@
                   </tr>
                 </tbody>
               </table>
-              <div class="history-ex-footer">{{ exFooter(e) }}{{ e.notas ? ` · "${e.notas}"` : '' }}</div>
+              <div class="history-ex-footer">
+              {{ exFooter(e) }}{{ e.notas ? ` · "${e.notas}"` : '' }}
+              <span v-if="e.descansoSeg" style="color:var(--text3)"> · 😴 {{ e.descansoSeg }}s descanso</span>
+            </div>
             </template>
           </template>
-          <div v-if="h.descansoSeg" class="history-descanso">
-            😴 Descanso entre series: <strong style="color:var(--text)">{{ h.descansoSeg }}s</strong>
-          </div>
         </div>
       </div>
     </div>
