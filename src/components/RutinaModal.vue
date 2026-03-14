@@ -176,13 +176,11 @@ async function generarConIA(ex) {
   "busqueda_video": "string"
 }
 
-For "notas": write in Spanish using "tú", like a coach talking directly to the athlete. Use this exact format with real line breaks (\\n):
-💨 [exact breathing cue tied to the specific movement phase of THIS exercise]
-📐 [2 specific form cues unique to this exercise to avoid injury]
-🎯 [1-2 tips if they don't feel the target muscle — specific to this exercise]
+For "notas": write in Spanish using "tú", like a coach talking directly to the athlete. Use | as separator between sections (NOT line breaks):
+💨 [exact breathing cue for THIS exercise] | 📐 [specific form cue 1] | 📐 [specific form cue 2] | 🎯 [tip if they don't feel the target muscle]
 ${generoTip}Vary your wording naturally, never use generic or template-like language.
 
-For "busqueda_video": write a specific YouTube/TikTok search query in Spanish to find a short tutorial. Follow this pattern: "Cómo hacer [exercise name] correctamente${generoEs ? ` para ${generoEs}` : ''}" or "Técnica correcta [exercise name]${generoEs ? ` ${generoEs}` : ''}". Be specific, include the equipment if relevant. No quotes in the output.
+For "busqueda_video": a specific search query in Spanish, example format: Como hacer peso muerto correctamente para hombre. Include equipment if relevant. Must be a plain string value with no special characters.
 
 For musculos use ONLY these IDs: ${VALID_MUSCLES.join(', ')}.
 Primary >60% MVC, secondary 30-60%, tertiary <30%.`
@@ -202,11 +200,21 @@ Primary >60% MVC, secondary 30-60%, tertiary <30%.`
     const data = await res.json()
     const text = data?.choices?.[0]?.message?.content || ''
     const raw = text.replace(/```json?|```/g, '').trim()
-    // Fix literal newlines/tabs inside JSON string values (invalid JSON)
-    const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
-      s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' ')
-    )
-    const json = JSON.parse(sanitized)
+
+    let json
+    try {
+      // Fix literal control chars inside JSON string values before parsing
+      const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
+        s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' ')
+      )
+      json = JSON.parse(sanitized)
+    } catch {
+      // Fallback: extract each field with regex
+      const str = (key) => { const m = raw.match(new RegExp(`"${key}"\\s*:\\s*"((?:[^"\\\\]|\\\\.)*?)"`)); return m?.[1] || '' }
+      const obj = (key) => { try { const m = raw.match(new RegExp(`"${key}"\\s*:(\\s*\\{[^}]+\\})`)); return m ? JSON.parse(m[1]) : {} } catch { return {} } }
+      const m = obj('musculos')
+      json = { musculos: m, notas: str('notas'), busqueda_video: str('busqueda_video') }
+    }
 
     const filter = (arr) => (arr || []).filter(m => VALID_MUSCLES.includes(m))
     const m = json.musculos || {}
@@ -215,7 +223,7 @@ Primary >60% MVC, secondary 30-60%, tertiary <30%.`
       ...filter(m.secundario).map(muscle => ({ muscle, nivel: 'secundario' })),
       ...filter(m.terciario).map(muscle => ({ muscle, nivel: 'terciario' })),
     ]
-    if (json.notas) ex.notas = json.notas
+    if (json.notas) ex.notas = json.notas.replace(/\s*\|\s*/g, '\n')
     if (json.busqueda_video) ex._busquedaVideo = json.busqueda_video
     ex._iaDetected = true
     ex._showMap = true
