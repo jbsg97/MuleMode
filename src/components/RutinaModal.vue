@@ -82,6 +82,17 @@
             placeholder="Ej: Exhalar al subir · No doblar la espalda · Talones pegados al suelo"
             style="resize:vertical;font-size:13px;line-height:1.4"></textarea>
         </div>
+
+        <div style="margin-top:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <label class="form-label" style="margin:0">🧠 Músculos trabajados <span style="color:var(--text3);font-weight:400">(opcional)</span></label>
+            <button type="button" style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;padding:0"
+              @click="ex._showMap = !ex._showMap">
+              {{ ex._showMap ? 'Ocultar' : 'Mostrar' }}
+            </button>
+          </div>
+          <MuscleMap v-if="ex._showMap" v-model="ex.musculos" />
+        </div>
       </div>
 
     </div>
@@ -99,6 +110,7 @@
 <script setup>
 import { ref, watch } from 'vue'
 import { useStore, EQUIPO_OPTIONS } from '../store/index.js'
+import MuscleMap from './MuscleMap.vue'
 
 const store = useStore()
 const nombre = ref('')
@@ -121,6 +133,7 @@ watch(() => store.rutinaModalVisible, (visible) => {
 function addExercise(ex = null) {
   exercises.value.push({
     _formId: Date.now() + Math.random(),
+    _showMap: false,
     id: ex?.id || ('e' + Date.now() + Math.random()),
     nombre: ex?.nombre || '',
     series: ex?.series || 3,
@@ -131,6 +144,7 @@ function addExercise(ex = null) {
     musclewiki: ex?.musclewiki || '',
     notas: ex?.notas || '',
     descansoRecomendado: ex?.descansoRecomendado || 90,
+    musculos: ex?.musculos || [],
   })
 }
 
@@ -155,6 +169,7 @@ function guardar() {
         musclewiki: e.musclewiki || '',
         notas: e.notas || '',
         descansoRecomendado: parseInt(e.descansoRecomendado) || 90,
+        musculos: e.musculos || [],
       }
     })
   if (ejercicios.length === 0) { store.showToast('Agrega al menos un ejercicio'); return }
