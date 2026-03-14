@@ -7,7 +7,8 @@
         <svg viewBox="0 0 100 200" class="mmap-svg" xmlns="http://www.w3.org/2000/svg">
           <polygon v-for="(p, i) in anteriorPolys" :key="'a'+i"
             :points="p.points"
-            :class="['mpoly', !readonly && p.selectable && 'selectable', modelValue.includes(p.muscle) && 'active']"
+            :fill="getPolyColor(p.muscle, p.selectable)"
+            :class="['mpoly', !readonly && p.selectable && 'selectable']"
             @click="!readonly && p.selectable && toggle(p.muscle)"
           />
         </svg>
@@ -18,19 +19,28 @@
         <svg viewBox="0 0 100 200" class="mmap-svg" xmlns="http://www.w3.org/2000/svg">
           <polygon v-for="(p, i) in posteriorPolys" :key="'p'+i"
             :points="p.points"
-            :class="['mpoly', !readonly && p.selectable && 'selectable', modelValue.includes(p.muscle) && 'active']"
+            :fill="getPolyColor(p.muscle, p.selectable)"
+            :class="['mpoly', !readonly && p.selectable && 'selectable']"
             @click="!readonly && p.selectable && toggle(p.muscle)"
           />
         </svg>
       </div>
     </div>
 
+    <!-- Leyenda -->
+    <div v-if="!readonly" class="mmap-legend">
+      <span style="color:#ff4d4d">● Primario</span>
+      <span style="color:#ff9900">● Secundario</span>
+      <span style="color:#ffd700">● Terciario</span>
+      <span style="color:var(--text3);font-size:10px">(toca para ciclar)</span>
+    </div>
+
     <!-- Chips de músculos seleccionados -->
     <div v-if="modelValue.length > 0" class="mmap-chips">
-      <span v-for="m in modelValue" :key="m" class="mmap-chip"
-        :style="readonly ? 'cursor:default' : ''"
-        @click="!readonly && toggle(m)">
-        {{ LABELS[m] || m }} {{ readonly ? '' : '✕' }}
+      <span v-for="entry in normalizedValue" :key="entry.muscle" class="mmap-chip"
+        :style="`border-color:${NIVEL_COLORS[entry.nivel]}40;color:${NIVEL_COLORS[entry.nivel]};background:${NIVEL_COLORS[entry.nivel]}18;${readonly ? 'cursor:default' : ''}`"
+        @click="!readonly && toggle(entry.muscle)">
+        ● {{ LABELS[entry.muscle] || entry.muscle }} {{ readonly ? '' : '✕' }}
       </span>
     </div>
     <div v-else-if="!readonly" class="mmap-hint">Toca los músculos para marcarlos</div>
@@ -44,9 +54,31 @@ const props = defineProps({
 })
 const emit = defineEmits(['update:modelValue'])
 
+import { computed } from 'vue'
 import { MUSCLE_LABELS as LABELS } from '../store/index.js'
 
+const NIVEL_COLORS   = { primario: '#ff4d4d', secundario: '#ff9900', terciario: '#ffd700' }
+const NIVEL_CYCLE    = ['primario', 'secundario', 'terciario']
 const NON_SELECTABLE = new Set(['head', 'knees', 'right-soleus'])
+
+// Normaliza el array — acepta tanto strings como {muscle, nivel}
+const normalizedValue = computed(() =>
+  props.modelValue.map(m =>
+    typeof m === 'string' ? { muscle: m, nivel: 'primario' } : m
+  )
+)
+
+function getNivel(muscle) {
+  const entry = normalizedValue.value.find(e => e.muscle === muscle)
+  return entry ? entry.nivel : null
+}
+
+function getPolyColor(muscle, selectable) {
+  if (!selectable) return '#1e1c2a'
+  const nivel = getNivel(muscle)
+  if (nivel) return NIVEL_COLORS[nivel]
+  return '#3b3750'
+}
 
 function mk(muscle, points) {
   return { muscle, points, selectable: !NON_SELECTABLE.has(muscle) }
@@ -151,12 +183,16 @@ const posteriorPolys = [
 ]
 
 function toggle(muscle) {
-  const cur = [...props.modelValue]
-  // left-soleus y right-soleus se tratan como uno solo
   if (muscle === 'right-soleus') muscle = 'left-soleus'
-  const idx = cur.indexOf(muscle)
-  if (idx === -1) cur.push(muscle)
-  else cur.splice(idx, 1)
+  const cur = normalizedValue.value.map(e => ({ ...e }))
+  const idx = cur.findIndex(e => e.muscle === muscle)
+  if (idx === -1) {
+    cur.push({ muscle, nivel: 'primario' })
+  } else {
+    const next = NIVEL_CYCLE.indexOf(cur[idx].nivel) + 1
+    if (next >= NIVEL_CYCLE.length) cur.splice(idx, 1)
+    else cur[idx].nivel = NIVEL_CYCLE[next]
+  }
   emit('update:modelValue', cur)
 }
 </script>
@@ -208,9 +244,13 @@ function toggle(muscle) {
   fill: #524e6a;
 }
 
-.mpoly.active {
-  fill: #e8f03a;
-  filter: drop-shadow(0 0 3px rgba(232, 240, 58, 0.6));
+.mmap-legend {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  font-size: 11px;
+  margin-top: 8px;
+  flex-wrap: wrap;
 }
 
 .mmap-chips {

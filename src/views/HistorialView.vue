@@ -122,7 +122,16 @@ function medLabel(e) {
 }
 
 function sessionMuscles(h) {
-  return [...new Set((h.ejercicios || []).flatMap(e => e.musculos || []))]
+  const nivelOrder = { primario: 0, secundario: 1, terciario: 2 }
+  const map = {}
+  ;(h.ejercicios || []).forEach(e => {
+    (e.musculos || []).forEach(m => {
+      const muscle = typeof m === 'string' ? m : m.muscle
+      const nivel  = typeof m === 'string' ? 'primario' : m.nivel
+      if (!map[muscle] || nivelOrder[nivel] < nivelOrder[map[muscle]]) map[muscle] = nivel
+    })
+  })
+  return Object.entries(map).map(([muscle, nivel]) => ({ muscle, nivel }))
 }
 
 function exFooter(e) {

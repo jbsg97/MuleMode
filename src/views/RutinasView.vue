@@ -76,7 +76,10 @@
                 </a>
               </div>
               <div v-if="e.musculos && e.musculos.length" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
-                <span v-for="m in e.musculos" :key="m" class="muscle-tag">{{ MUSCLE_LABELS[m] || m }}</span>
+                <span v-for="m in e.musculos" :key="muscleId(m)" class="muscle-tag"
+                  :style="`background:${NIVEL_COLORS[muscleNivel(m)]}18;color:${NIVEL_COLORS[muscleNivel(m)]};border-color:${NIVEL_COLORS[muscleNivel(m)]}40`">
+                  {{ MUSCLE_LABELS[muscleId(m)] || muscleId(m) }}
+                </span>
               </div>
             </div>
             <span class="ex-row-sets" style="flex-shrink:0">{{ e.series }}×{{ e.reps }}</span>
@@ -109,9 +112,14 @@ function toggleCard(id) {
   openCards[id] = !wasOpen
 }
 
+function muscleId(m) { return typeof m === 'string' ? m : m.muscle }
+function muscleNivel(m) { return typeof m === 'string' ? 'primario' : m.nivel }
+
 function routineDesc(r) {
-  const muscles = [...new Set(r.ejercicios.flatMap(e => e.musculos || []))]
+  const muscles = [...new Set(r.ejercicios.flatMap(e => (e.musculos || []).map(muscleId)))]
   if (muscles.length) return muscles.map(m => MUSCLE_LABELS[m] || m).join(' · ')
   return r.desc || ''
 }
+
+const NIVEL_COLORS = { primario: '#ff4d4d', secundario: '#ff9900', terciario: '#ffd700' }
 </script>
