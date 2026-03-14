@@ -7,8 +7,8 @@
         <svg viewBox="0 0 100 200" class="mmap-svg" xmlns="http://www.w3.org/2000/svg">
           <polygon v-for="(p, i) in anteriorPolys" :key="'a'+i"
             :points="p.points"
-            :class="['mpoly', p.selectable && 'selectable', modelValue.includes(p.muscle) && 'active']"
-            @click="p.selectable && toggle(p.muscle)"
+            :class="['mpoly', !readonly && p.selectable && 'selectable', modelValue.includes(p.muscle) && 'active']"
+            @click="!readonly && p.selectable && toggle(p.muscle)"
           />
         </svg>
       </div>
@@ -18,8 +18,8 @@
         <svg viewBox="0 0 100 200" class="mmap-svg" xmlns="http://www.w3.org/2000/svg">
           <polygon v-for="(p, i) in posteriorPolys" :key="'p'+i"
             :points="p.points"
-            :class="['mpoly', p.selectable && 'selectable', modelValue.includes(p.muscle) && 'active']"
-            @click="p.selectable && toggle(p.muscle)"
+            :class="['mpoly', !readonly && p.selectable && 'selectable', modelValue.includes(p.muscle) && 'active']"
+            @click="!readonly && p.selectable && toggle(p.muscle)"
           />
         </svg>
       </div>
@@ -27,17 +27,22 @@
 
     <!-- Chips de músculos seleccionados -->
     <div v-if="modelValue.length > 0" class="mmap-chips">
-      <span v-for="m in modelValue" :key="m" class="mmap-chip" @click="toggle(m)">
-        {{ LABELS[m] || m }} ✕
+      <span v-for="m in modelValue" :key="m" class="mmap-chip"
+        :style="readonly ? 'cursor:default' : ''"
+        @click="!readonly && toggle(m)">
+        {{ LABELS[m] || m }} {{ readonly ? '' : '✕' }}
       </span>
     </div>
-    <div v-else class="mmap-hint">Toca los músculos para marcarlos</div>
+    <div v-else-if="!readonly" class="mmap-hint">Toca los músculos para marcarlos</div>
   </div>
 </template>
 
 <script setup>
-const props = defineProps({ modelValue: { type: Array, default: () => [] } })
-const emit  = defineEmits(['update:modelValue'])
+const props = defineProps({
+  modelValue: { type: Array, default: () => [] },
+  readonly:   { type: Boolean, default: false },
+})
+const emit = defineEmits(['update:modelValue'])
 
 const LABELS = {
   'chest':          'Pecho',

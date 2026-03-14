@@ -29,6 +29,10 @@
             <button v-if="ex.musclewiki" class="ex-video-btn" @click.stop="openMuscleWiki(ex.musclewiki)">
               💪 Músculo
             </button>
+            <button v-if="ex.musculos && ex.musculos.length" class="ex-video-btn"
+              @click.stop="showMap[ei] = !showMap[ei]">
+              🧠 {{ showMap[ei] ? 'Ocultar' : 'Músculos' }}
+            </button>
             <button class="ex-video-btn" @click.stop="store.abrirVideo(ex.id, ex.nombre)">▶ Video</button>
           </div>
         </div>
@@ -70,6 +74,7 @@
             </tr>
           </table>
           <button class="add-serie-btn" @click="store.addSerie(ei)">+ Serie extra</button>
+          <MuscleMap v-if="showMap[ei]" :model-value="ex.musculos || []" readonly style="padding:8px 0" />
           <div v-if="ex.notas || ex.descansoRecomendado" class="ex-cues">
             <span v-if="ex.descansoRecomendado">😴 {{ ex.descansoRecomendado }}s descanso</span>
             <span v-if="ex.notas && ex.descansoRecomendado"> · </span>
@@ -91,12 +96,14 @@
 <script setup>
 import { reactive } from 'vue'
 import { useStore, EQUIPO_MAP } from '../store/index.js'
+import MuscleMap from '../components/MuscleMap.vue'
 
 defineEmits(['finish'])
 
 const store = useStore()
 const equipoMap = EQUIPO_MAP
 const collapsed = reactive({})
+const showMap   = reactive({})
 
 function toggleExBlock(ei) {
   collapsed[ei] = !collapsed[ei]
