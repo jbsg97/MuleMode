@@ -70,6 +70,7 @@
             </tr>
           </table>
           <button class="add-serie-btn" @click="store.addSerie(ei)">+ Serie extra</button>
+          <div v-if="ex.notas" class="ex-cues">📝 {{ ex.notas }}</div>
           <textarea class="notes-area" placeholder="Notas del ejercicio..."
             :value="ex.notaSession || ''"
             @change="store.updateExNota(ei, $event.target.value)"></textarea>

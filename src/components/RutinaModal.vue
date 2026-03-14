@@ -69,9 +69,16 @@
           <input class="form-input" type="url" placeholder="https://youtube.com/... o https://tiktok.com/..." v-model="ex.video" style="font-size:13px">
         </div>
 
-        <div>
+        <div class="form-group">
           <label class="form-label">💪 Link MuscleWiki <span style="color:var(--text3);font-weight:400">(opcional)</span></label>
           <input class="form-input" type="url" placeholder="https://musclewiki.com/..." v-model="ex.musclewiki" style="font-size:13px">
+        </div>
+
+        <div>
+          <label class="form-label">📝 Notas / cues <span style="color:var(--text3);font-weight:400">(opcional)</span></label>
+          <textarea class="form-input" v-model="ex.notas" rows="2"
+            placeholder="Ej: Exhalar al subir · No doblar la espalda · Talones pegados al suelo"
+            style="resize:vertical;font-size:13px;line-height:1.4"></textarea>
         </div>
       </div>
 
@@ -120,6 +127,7 @@ function addExercise(ex = null) {
     tipoMedida: ex?.tipoMedida || 'reps',
     video: ex ? (store.videos[ex.id] || ex.video || '') : '',
     musclewiki: ex?.musclewiki || '',
+    notas: ex?.notas || '',
   })
 }
 
@@ -142,7 +150,7 @@ function guardar() {
         equipo: e.equipo,
         tipoMedida: e.tipoMedida || 'reps',
         musclewiki: e.musclewiki || '',
-        notas: '',
+        notas: e.notas || '',
       }
     })
   if (ejercicios.length === 0) { store.showToast('Agrega al menos un ejercicio'); return }
