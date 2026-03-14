@@ -2,13 +2,13 @@ import { defineStore } from 'pinia'
 import localforage from 'localforage'
 
 export const EQUIPO_MAP = {
-  'kb':   { label: 'KB',        color: '#44cc88', bg: '#1a2e1a' },
-  'sb':   { label: 'SB',        color: '#ff8844', bg: '#2e1a1a' },
-  'bb':   { label: 'Barra',     color: '#4488ff', bg: '#1a1a2e' },
-  'db':   { label: 'Mancuerna', color: '#cc88ff', bg: '#2a1a2e' },
-  'bw':   { label: 'BW',        color: '#a0a0a0', bg: '#222222' },
-  'band': { label: 'Banda',     color: '#44cccc', bg: '#1a2e2e' },
-  'trx':  { label: 'TRX',       color: '#ffcc44', bg: '#2e2a1a' },
+  'kb':   { label: 'Kettlebell',  color: '#44cc88', bg: '#1a2e1a' },
+  'sb':   { label: 'Sandbag',     color: '#ff8844', bg: '#2e1a1a' },
+  'bb':   { label: 'Barra',       color: '#4488ff', bg: '#1a1a2e' },
+  'db':   { label: 'Mancuerna',   color: '#cc88ff', bg: '#2a1a2e' },
+  'bw':   { label: 'Peso corporal', color: '#a0a0a0', bg: '#222222' },
+  'band': { label: 'Banda',       color: '#44cccc', bg: '#1a2e2e' },
+  'trx':  { label: 'TRX',         color: '#ffcc44', bg: '#2e2a1a' },
 }
 
 export const EQUIPO_OPTIONS = [
