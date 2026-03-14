@@ -32,6 +32,36 @@
 </template>
 
 <script setup>
+import { watch } from 'vue'
 import { useStore } from '../store/index.js'
+
 const store = useStore()
+
+function playBeep() {
+  try {
+    const AudioCtx = /** @type {any} */ (window).AudioContext || /** @type {any} */ (window).webkitAudioContext
+    const ctx = new AudioCtx()
+    const beeps = [
+      { freq: 880, start: 0,   dur: 0.12 },
+      { freq: 880, start: 0.15, dur: 0.12 },
+      { freq: 1100, start: 0.30, dur: 0.25 },
+    ]
+    beeps.forEach(({ freq, start, dur }) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.frequency.value = freq
+      osc.type = 'sine'
+      gain.gain.setValueAtTime(0.4, ctx.currentTime + start)
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + dur)
+      osc.start(ctx.currentTime + start)
+      osc.stop(ctx.currentTime + start + dur)
+    })
+  } catch {}
+}
+
+watch(() => store.restRemaining, (val) => {
+  if (val === 0) playBeep()
+})
 </script>

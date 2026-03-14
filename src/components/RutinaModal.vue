@@ -14,6 +14,11 @@
         <label class="form-label">Descripción (opcional)</label>
         <input class="form-input" v-model="desc" placeholder="Ej: Pecho · Hombros · Core">
       </div>
+      <div class="form-group">
+        <label class="form-label">Descanso recomendado entre series (seg)</label>
+        <input class="form-input" type="number" min="10" max="600" step="5"
+          v-model.number="descansoRecomendado" placeholder="90">
+      </div>
 
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div class="form-label" style="margin:0">Ejercicios</div>
@@ -87,6 +92,7 @@ import { useStore, EQUIPO_OPTIONS } from '../store/index.js'
 const store = useStore()
 const nombre = ref('')
 const desc = ref('')
+const descansoRecomendado = ref(90)
 const exercises = ref([])
 
 watch(() => store.rutinaModalVisible, (visible) => {
@@ -94,6 +100,7 @@ watch(() => store.rutinaModalVisible, (visible) => {
   const r = store.editingRutinaId ? store.rutinas.find(x => x.id === store.editingRutinaId) : null
   nombre.value = r?.nombre || ''
   desc.value = r?.desc || ''
+  descansoRecomendado.value = r?.descansoRecomendado || 90
   exercises.value = []
   if (r) {
     r.ejercicios.forEach(e => addExercise(e))
@@ -139,7 +146,7 @@ function guardar() {
       }
     })
   if (ejercicios.length === 0) { store.showToast('Agrega al menos un ejercicio'); return }
-  store.guardarRutina(nombre.value.trim(), desc.value.trim(), ejercicios)
+  store.guardarRutina(nombre.value.trim(), desc.value.trim(), ejercicios, descansoRecomendado.value)
 }
 
 function eliminar() {

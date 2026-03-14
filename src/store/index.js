@@ -187,12 +187,13 @@ export const useStore = defineStore('mulemode', {
       this.rutinaModalVisible = true
     },
 
-    guardarRutina(nombre, desc, ejercicios) {
+    guardarRutina(nombre, desc, ejercicios, descansoRecomendado) {
+      const descanso = parseInt(descansoRecomendado) || 90
       if (this.editingRutinaId) {
         const idx = this.rutinas.findIndex(r => r.id === this.editingRutinaId)
-        if (idx !== -1) this.rutinas[idx] = { ...this.rutinas[idx], nombre, desc, ejercicios }
+        if (idx !== -1) this.rutinas[idx] = { ...this.rutinas[idx], nombre, desc, ejercicios, descansoRecomendado: descanso }
       } else {
-        this.rutinas.push({ id: 'r' + Date.now(), nombre, desc, ejercicios })
+        this.rutinas.push({ id: 'r' + Date.now(), nombre, desc, ejercicios, descansoRecomendado: descanso })
       }
       this.save()
       this.rutinaModalVisible = false
@@ -226,6 +227,7 @@ export const useStore = defineStore('mulemode', {
           })),
         })),
       }
+      this.restTotal = rutina.descansoRecomendado || 90
       this.wkElapsed = 0
       if (this.wkInterval) clearInterval(this.wkInterval)
       this.wkInterval = setInterval(() => { this.wkElapsed++ }, 1000)
@@ -299,10 +301,11 @@ export const useStore = defineStore('mulemode', {
     },
 
     // ── DESCANSO ──────────────────────────────────────────────────
-    iniciarDescanso(seg = 90) {
+    iniciarDescanso(seg) {
+      const duration = seg ?? this.restTotal
       if (this.restInterval) clearInterval(this.restInterval)
-      this.restTotal = seg
-      this.restRemaining = seg
+      this.restTotal = duration
+      this.restRemaining = duration
       this.restVisible = true
       this.restInterval = setInterval(() => {
         this.restRemaining--
