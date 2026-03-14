@@ -102,8 +102,11 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 .modal-title { font-family: 'Bebas Neue', sans-serif; font-size: 26px; letter-spacing: 1px; }
 .modal-close { background: none; border: none; color: var(--text2); font-size: 20px; cursor: pointer; padding: 4px 8px; }
 .modal-footer { padding: 12px 16px 32px; border-top: 1px solid var(--border); background: var(--bg); flex-shrink: 0; }
-.delete-btn { background: none; border: none; font-size: 16px; cursor: pointer; padding: 6px 8px; border-radius: 8px; flex-shrink: 0; margin-left: 8px; opacity: 0.55; transition: opacity 0.15s; }
-.delete-btn:active { opacity: 1; }
+.icon-btn { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; cursor: pointer; font-size: 15px; padding: 6px 9px; flex-shrink: 0; transition: border-color 0.15s, background 0.15s; line-height: 1; }
+.icon-btn--edit { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 30%, transparent); margin-left: 4px; }
+.icon-btn--edit:active { background: color-mix(in srgb, var(--accent) 15%, transparent); }
+.icon-btn--delete { color: var(--red); border-color: color-mix(in srgb, var(--red) 30%, transparent); margin-left: 8px; }
+.icon-btn--delete:active { background: color-mix(in srgb, var(--red) 15%, transparent); }
 
 /* VIDEO */
 .video-container { padding: 16px; overflow-y: auto; flex: 1; }

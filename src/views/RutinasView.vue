@@ -56,7 +56,7 @@
             <div class="routine-meta">{{ r.desc || '' }} · {{ r.ejercicios.length }} ejercicios</div>
           </div>
           <div style="display:flex;gap:8px;align-items:center">
-            <button class="btn btn-outline btn-sm" @click.stop="store.editarRutina(r.id)">✏️</button>
+            <button class="icon-btn icon-btn--edit" @click.stop="store.editarRutina(r.id)" title="Editar">✎</button>
             <div class="chevron" :style="{ transform: openCards[r.id] ? 'rotate(90deg)' : '' }">›</div>
           </div>
         </div>
