@@ -24,9 +24,24 @@
             style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer">✕</button>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">Nombre</label>
-          <input class="form-input" v-model="ex.nombre" placeholder="Ej: KB swing">
+        <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end;margin-bottom:10px">
+          <div class="form-group" style="margin:0">
+            <label class="form-label">Nombre</label>
+            <input class="form-input" v-model="ex.nombre" placeholder="Ej: KB swing">
+          </div>
+          <button v-if="store.geminiKey" type="button"
+            :disabled="ex._generating || !ex.nombre.trim()"
+            @click="generarConIA(ex)"
+            style="height:40px;padding:0 12px;border-radius:var(--radius-sm);border:1px solid var(--accent);
+                   background:transparent;color:var(--accent);font-size:12px;font-weight:600;cursor:pointer;
+                   white-space:nowrap;opacity:1"
+            :style="{ opacity: (ex._generating || !ex.nombre.trim()) ? '0.4' : '1' }">
+            {{ ex._generating ? '⏳' : '🤖 IA' }}
+          </button>
+        </div>
+
+        <div v-if="ex._iaDetected" style="font-size:11px;color:var(--accent);margin-bottom:8px">
+          ✓ Músculos y notas generados por IA
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px">
@@ -74,7 +89,7 @@
 
         <div>
           <label class="form-label">📝 Notas / cues <span style="color:var(--text3);font-weight:400">(opcional)</span></label>
-          <textarea class="form-input" v-model="ex.notas" rows="2"
+          <textarea class="form-input" v-model="ex.notas" rows="3"
             placeholder="Ej: Exhalar al subir · No doblar la espalda · Talones pegados al suelo"
             style="resize:vertical;font-size:13px;line-height:1.4"></textarea>
         </div>
@@ -82,9 +97,7 @@
         <div style="margin-top:10px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
             <label class="form-label" style="margin:0">🧠 Músculos trabajados
-              <span v-if="ex._detecting" style="color:var(--text3);font-size:11px;font-weight:400;margin-left:6px">⏳ detectando...</span>
-              <span v-else-if="ex._autoDetected" style="color:var(--accent);font-size:11px;font-weight:400;margin-left:6px">✓ Gemini</span>
-              <span v-else style="color:var(--text3);font-weight:400"> (opcional)</span>
+              <span style="color:var(--text3);font-weight:400"> (opcional)</span>
             </label>
             <button type="button" style="background:none;border:none;color:var(--text3);font-size:12px;cursor:pointer;padding:0"
               @click="ex._showMap = !ex._showMap">
@@ -116,6 +129,8 @@ const VALID_MUSCLES = ['chest','obliques','abs','biceps','triceps','front-deltoi
   'abductors','quadriceps','calves','forearm','trapezius','upper-back','lower-back',
   'back-deltoids','gluteal','adductor','hamstring','left-soleus']
 
+const EQUIPO_LABELS = { kb: 'kettlebell', sb: 'sandbag', bb: 'barbell', db: 'dumbbell', bw: 'bodyweight', band: 'resistance band', trx: 'TRX' }
+
 const store = useStore()
 const nombre = ref('')
 const exercises = ref([])
@@ -132,47 +147,58 @@ watch(() => store.rutinaModalVisible, (visible) => {
   }
 })
 
-const detectTimers = {}
-
-async function detectarConIA(nombre) {
+async function generarConIA(ex) {
   const key = store.geminiKey
-  if (!key || nombre.trim().length < 3) return null
-  const prompt = `Given the exercise "${nombre}", identify which muscle groups are worked.
-Respond ONLY with valid JSON in this exact format (no markdown, no explanation):
-{"primario":[],"secundario":[],"terciario":[]}
-Use ONLY these muscle IDs: ${VALID_MUSCLES.join(', ')}.
-Primary = >60% MVC activation, secondary = 30-60%, tertiary = <30%.`
+  if (!key || !ex.nombre.trim()) return
 
+  const equipoStr = EQUIPO_LABELS[ex.equipo] ? ` (with ${EQUIPO_LABELS[ex.equipo]})` : ''
+  const prompt = `For the exercise "${ex.nombre}"${equipoStr}, respond ONLY with valid JSON (no markdown):
+{
+  "musculos": {"primario":[],"secundario":[],"terciario":[]},
+  "notas": "2-4 short cues in Spanish: breathing, form, injury prevention. Separate with · "
+}
+For musculos use ONLY these IDs: ${VALID_MUSCLES.join(', ')}.
+Primary >60% MVC, secondary 30-60%, tertiary <30%.`
+
+  ex._generating = true
   try {
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${key}`,
-      },
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
       body: JSON.stringify({
         model: 'llama-3.3-70b-versatile',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0,
-        max_tokens: 200,
+        max_tokens: 300,
       }),
     })
     const data = await res.json()
     const text = data?.choices?.[0]?.message?.content || ''
     const json = JSON.parse(text.replace(/```json?|```/g, '').trim())
+
     const filter = (arr) => (arr || []).filter(m => VALID_MUSCLES.includes(m))
-    return { primario: filter(json.primario), secundario: filter(json.secundario), terciario: filter(json.terciario) }
+    const m = json.musculos || {}
+    ex.musculos = [
+      ...filter(m.primario).map(muscle => ({ muscle, nivel: 'primario' })),
+      ...filter(m.secundario).map(muscle => ({ muscle, nivel: 'secundario' })),
+      ...filter(m.terciario).map(muscle => ({ muscle, nivel: 'terciario' })),
+    ]
+    if (json.notas) ex.notas = json.notas
+    ex._iaDetected = true
+    ex._showMap = true
+    store.showToast('✓ IA generó músculos y notas')
   } catch {
-    return null
+    store.showToast('Error al conectar con Groq')
   }
+  ex._generating = false
 }
 
 function addExercise(ex = null) {
-  const entry = {
+  exercises.value.push({
     _formId: Date.now() + Math.random(),
     _showMap: false,
-    _autoDetected: false,
-    _detecting: false,
+    _iaDetected: false,
+    _generating: false,
     id: ex?.id || ('e' + Date.now() + Math.random()),
     nombre: ex?.nombre || '',
     series: ex?.series || 3,
@@ -184,28 +210,6 @@ function addExercise(ex = null) {
     notas: ex?.notas || '',
     descansoRecomendado: ex?.descansoRecomendado || 90,
     musculos: ex?.musculos || [],
-  }
-  exercises.value.push(entry)
-  const reactive = exercises.value[exercises.value.length - 1]
-
-  watch(() => reactive.nombre, (val) => {
-    reactive._autoDetected = false
-    clearTimeout(detectTimers[reactive._formId])
-    if (!store.geminiKey || val.trim().length < 3) return
-    detectTimers[reactive._formId] = setTimeout(async () => {
-      reactive._detecting = true
-      const match = await detectarConIA(val)
-      reactive._detecting = false
-      if (match && (match.primario.length || match.secundario.length)) {
-        reactive.musculos = [
-          ...match.primario.map(m => ({ muscle: m, nivel: 'primario' })),
-          ...match.secundario.map(m => ({ muscle: m, nivel: 'secundario' })),
-          ...match.terciario.map(m => ({ muscle: m, nivel: 'terciario' })),
-        ]
-        reactive._autoDetected = true
-        reactive._showMap = true
-      }
-    }, 800)
   })
 }
 
