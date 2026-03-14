@@ -181,23 +181,24 @@ function addExercise(ex = null) {
     musculos: ex?.musculos || [],
   }
   exercises.value.push(entry)
+  const reactive = exercises.value[exercises.value.length - 1]
 
-  watch(() => entry.nombre, (val) => {
-    entry._autoDetected = false
-    clearTimeout(detectTimers[entry._formId])
+  watch(() => reactive.nombre, (val) => {
+    reactive._autoDetected = false
+    clearTimeout(detectTimers[reactive._formId])
     if (!store.geminiKey || val.trim().length < 3) return
-    detectTimers[entry._formId] = setTimeout(async () => {
-      entry._detecting = true
+    detectTimers[reactive._formId] = setTimeout(async () => {
+      reactive._detecting = true
       const match = await detectarConGemini(val)
-      entry._detecting = false
+      reactive._detecting = false
       if (match && (match.primario.length || match.secundario.length)) {
-        entry.musculos = [
+        reactive.musculos = [
           ...match.primario.map(m => ({ muscle: m, nivel: 'primario' })),
           ...match.secundario.map(m => ({ muscle: m, nivel: 'secundario' })),
           ...match.terciario.map(m => ({ muscle: m, nivel: 'terciario' })),
         ]
-        entry._autoDetected = true
-        entry._showMap = true
+        reactive._autoDetected = true
+        reactive._showMap = true
       }
     }, 800)
   })
