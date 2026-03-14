@@ -155,10 +155,11 @@ async function generarConIA(ex) {
   const prompt = `For the exercise "${ex.nombre}"${equipoStr}, respond ONLY with valid JSON (no markdown):
 {
   "musculos": {"primario":[],"secundario":[],"terciario":[]},
-  "notas": "2-4 short cues in Spanish: breathing, form, injury prevention. Separate with · "
+  "notas": "string in Spanish with 4-6 specific cues separated by · covering: (1) exact breathing timing e.g. 'Inhala al bajar, exhala al empujar', (2) key form points to avoid injury, (3) 1-2 tips if you don't feel the target muscle working or want to improve mind-muscle connection"
 }
 For musculos use ONLY these IDs: ${VALID_MUSCLES.join(', ')}.
-Primary >60% MVC, secondary 30-60%, tertiary <30%.`
+Primary >60% MVC, secondary 30-60%, tertiary <30%.
+Be specific and practical, not generic.`
 
   ex._generating = true
   try {
@@ -169,7 +170,7 @@ Primary >60% MVC, secondary 30-60%, tertiary <30%.`
         model: 'llama-3.3-70b-versatile',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0,
-        max_tokens: 300,
+        max_tokens: 500,
       }),
     })
     const data = await res.json()
