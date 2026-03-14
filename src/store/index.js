@@ -82,6 +82,7 @@ export const useStore = defineStore('mulemode', {
     historial: [],
     videos: {},
     geminiKey: '',
+    genero: '',
     workout: null,
     pendingRegistro: null,
     // timer
@@ -180,6 +181,7 @@ export const useStore = defineStore('mulemode', {
           this.historial = d.historial || []
           this.videos    = d.videos   || {}
           this.geminiKey = d.geminiKey || ''
+          this.genero    = d.genero    || ''
         } else {
           this.rutinas  = defaultRutinas()
           this.historial = []
@@ -200,6 +202,7 @@ export const useStore = defineStore('mulemode', {
         historial:  this.historial,
         videos:     this.videos,
         geminiKey:  this.geminiKey,
+        genero:     this.genero,
       }))
       setDoc(doc(db, 'users', this.uid), data).catch(e => console.error('save error', e))
     },

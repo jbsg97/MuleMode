@@ -78,13 +78,26 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">▶ Video <span style="color:var(--text3);font-weight:400">(YouTube, TikTok u otro — opcional)</span></label>
-          <input class="form-input" type="url" placeholder="https://youtube.com/... o https://tiktok.com/..." v-model="ex.video" style="font-size:13px">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">💪 Link MuscleWiki <span style="color:var(--text3);font-weight:400">(opcional)</span></label>
-          <input class="form-input" type="url" placeholder="https://musclewiki.com/..." v-model="ex.musclewiki" style="font-size:13px">
+          <label class="form-label">▶ Video tutorial</label>
+          <div v-if="ex._busquedaVideo" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+            <a :href="ytUrl(ex._busquedaVideo)" target="_blank"
+              style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px;
+                     border-radius:var(--radius-sm);border:1px solid var(--border);
+                     color:var(--text2);font-size:12px;font-weight:600;text-decoration:none">
+              ▶ YouTube Shorts
+            </a>
+            <a :href="ttUrl(ex._busquedaVideo)" target="_blank"
+              style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px;
+                     border-radius:var(--radius-sm);border:1px solid var(--border);
+                     color:var(--text2);font-size:12px;font-weight:600;text-decoration:none">
+              ♪ TikTok
+            </a>
+          </div>
+          <div v-else-if="store.geminiKey" style="font-size:11px;color:var(--text3);margin-bottom:6px">
+            Usa el botón 🤖 IA para generar términos de búsqueda
+          </div>
+          <input class="form-input" type="url" placeholder="Pega la URL del video que encuentres (opcional)"
+            v-model="ex.video" style="font-size:12px">
         </div>
 
         <div>
@@ -152,16 +165,24 @@ async function generarConIA(ex) {
   if (!key || !ex.nombre.trim()) return
 
   const equipoStr = EQUIPO_LABELS[ex.equipo] ? ` (with ${EQUIPO_LABELS[ex.equipo]})` : ''
-  const prompt = `You are an experienced strength coach. For the exercise "${ex.nombre}"${equipoStr}, respond ONLY with valid JSON (no markdown, no extra text):
+  const generoCtx = store.genero === 'hombre' ? 'male athlete' : store.genero === 'mujer' ? 'female athlete' : 'athlete'
+  const generoEs  = store.genero === 'hombre' ? 'hombre' : store.genero === 'mujer' ? 'mujer' : null
+  const generoTip = generoEs ? ` El usuario es ${generoEs}, adapta terminología, enfasis muscular y cualquier variación relevante por género.` : ''
+
+  const prompt = `You are an experienced strength coach. For the exercise "${ex.nombre}"${equipoStr} performed by a ${generoCtx}, respond ONLY with valid JSON (no markdown, no extra text):
 {
   "musculos": {"primario":[],"secundario":[],"terciario":[]},
-  "notas": "string"
+  "notas": "string",
+  "busqueda_video": "string"
 }
 
-For "notas": write exactly in this format with real line breaks (\\n) between sections, in Spanish using "tú", like a coach talking directly to the athlete — vary your wording, be specific to THIS exercise, not generic:
-💨 [Breathing: exact moment to inhale and exhale tied to the movement phase]
-📐 [Form: 2 specific technique points unique to this exercise to avoid injury]
-🎯 [Feel: 1-2 tips for what to do if they don't feel the right muscle working]
+For "notas": write in Spanish using "tú", like a coach talking directly to the athlete. Use this exact format with real line breaks (\\n):
+💨 [exact breathing cue tied to the specific movement phase of THIS exercise]
+📐 [2 specific form cues unique to this exercise to avoid injury]
+🎯 [1-2 tips if they don't feel the target muscle — specific to this exercise]
+${generoTip}Vary your wording naturally, never use generic or template-like language.
+
+For "busqueda_video": write the best YouTube/TikTok search query in Spanish to find a short tutorial for this exercise${generoEs ? ` for a ${generoEs}` : ''}. Keep it under 8 words, no quotes.
 
 For musculos use ONLY these IDs: ${VALID_MUSCLES.join(', ')}.
 Primary >60% MVC, secondary 30-60%, tertiary <30%.`
@@ -190,9 +211,10 @@ Primary >60% MVC, secondary 30-60%, tertiary <30%.`
       ...filter(m.terciario).map(muscle => ({ muscle, nivel: 'terciario' })),
     ]
     if (json.notas) ex.notas = json.notas
+    if (json.busqueda_video) ex._busquedaVideo = json.busqueda_video
     ex._iaDetected = true
     ex._showMap = true
-    store.showToast('✓ IA generó músculos y notas')
+    store.showToast('✓ IA generó músculos, notas y búsqueda de video')
   } catch {
     store.showToast('Error al conectar con Groq')
   }
@@ -205,6 +227,7 @@ function addExercise(ex = null) {
     _showMap: false,
     _iaDetected: false,
     _generating: false,
+    _busquedaVideo: '',
     id: ex?.id || ('e' + Date.now() + Math.random()),
     nombre: ex?.nombre || '',
     series: ex?.series || 3,
@@ -237,7 +260,6 @@ function guardar() {
         reps: e.reps || '10',
         equipo: e.equipo,
         tipoMedida: e.tipoMedida || 'reps',
-        musclewiki: e.musclewiki || '',
         notas: e.notas || '',
         descansoRecomendado: parseInt(e.descansoRecomendado) || 90,
         musculos: e.musculos || [],
@@ -251,5 +273,12 @@ function guardar() {
 
 function eliminar() {
   if (confirm('¿Eliminar esta rutina?')) store.eliminarRutinaActual()
+}
+
+function ytUrl(q) {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q + ' shorts')}`
+}
+function ttUrl(q) {
+  return `https://www.tiktok.com/search?q=${encodeURIComponent(q)}`
 }
 </script>
