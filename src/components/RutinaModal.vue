@@ -10,10 +10,6 @@
         <label class="form-label">Nombre de la rutina</label>
         <input class="form-input" v-model="nombre" placeholder="Ej: Día 1 — Empuje">
       </div>
-      <div class="form-group">
-        <label class="form-label">Descripción (opcional)</label>
-        <input class="form-input" v-model="desc" placeholder="Ej: Pecho · Hombros · Core">
-      </div>
 
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
         <div class="form-label" style="margin:0">Ejercicios</div>
@@ -109,19 +105,17 @@
 
 <script setup>
 import { ref, watch } from 'vue'
-import { useStore, EQUIPO_OPTIONS } from '../store/index.js'
+import { useStore, EQUIPO_OPTIONS, MUSCLE_LABELS } from '../store/index.js'
 import MuscleMap from './MuscleMap.vue'
 
 const store = useStore()
 const nombre = ref('')
-const desc = ref('')
 const exercises = ref([])
 
 watch(() => store.rutinaModalVisible, (visible) => {
   if (!visible) return
   const r = store.editingRutinaId ? store.rutinas.find(x => x.id === store.editingRutinaId) : null
   nombre.value = r?.nombre || ''
-  desc.value = r?.desc || ''
   exercises.value = []
   if (r) {
     r.ejercicios.forEach(e => addExercise(e))
@@ -173,7 +167,9 @@ function guardar() {
       }
     })
   if (ejercicios.length === 0) { store.showToast('Agrega al menos un ejercicio'); return }
-  store.guardarRutina(nombre.value.trim(), desc.value.trim(), ejercicios)
+  const muscles = [...new Set(ejercicios.flatMap(e => (e.musculos || []).map(m => typeof m === 'string' ? m : m.muscle)))]
+  const autoDesc = muscles.map(m => MUSCLE_LABELS[m] || m).join(' · ')
+  store.guardarRutina(nombre.value.trim(), autoDesc, ejercicios)
 }
 
 function eliminar() {
