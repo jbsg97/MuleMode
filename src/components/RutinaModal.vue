@@ -65,8 +65,8 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">▶ Video de YouTube <span style="color:var(--text3);font-weight:400">(opcional)</span></label>
-          <input class="form-input" type="url" placeholder="https://youtube.com/watch?v=..." v-model="ex.video" style="font-size:13px">
+          <label class="form-label">▶ Video <span style="color:var(--text3);font-weight:400">(YouTube, TikTok u otro — opcional)</span></label>
+          <input class="form-input" type="url" placeholder="https://youtube.com/... o https://tiktok.com/..." v-model="ex.video" style="font-size:13px">
         </div>
 
         <div>
