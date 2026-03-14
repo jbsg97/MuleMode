@@ -196,7 +196,7 @@ Primary >60% MVC, secondary 30-60%, tertiary <30%.`
         model: 'llama-3.3-70b-versatile',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0,
-        max_tokens: 500,
+        max_tokens: 900,
       }),
     })
     const data = await res.json()
@@ -215,8 +215,9 @@ Primary >60% MVC, secondary 30-60%, tertiary <30%.`
     ex._iaDetected = true
     ex._showMap = true
     store.showToast('✓ IA generó músculos, notas y búsqueda de video')
-  } catch {
-    store.showToast('Error al conectar con Groq')
+  } catch (err) {
+    console.error('Groq error:', err)
+    store.showToast('Error IA: ' + (err?.message || 'revisa la consola'))
   }
   ex._generating = false
 }
