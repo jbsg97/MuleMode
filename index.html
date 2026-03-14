@@ -8,6 +8,7 @@
 <title>MuleMode</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
 <style>
   :root {
     --bg: #0e0e0e;
@@ -206,6 +207,18 @@
   .summary-stat-lbl { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; }
   .pr-list { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
   .pr-badge { background: rgba(232,240,58,0.12); border: 1px solid rgba(232,240,58,0.4); border-radius: 20px; padding: 8px 16px; font-size: 13px; color: var(--accent); font-weight: 600; text-align: center; }
+  /* HISTORIAL MEJORADO */
+  .history-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  .history-chip { font-size: 11px; background: var(--bg3); border: 1px solid var(--border); border-radius: 20px; padding: 3px 9px; color: var(--text2); white-space: nowrap; }
+  .history-chip span { color: var(--accent); font-weight: 600; }
+  .history-ex-name { font-size: 13px; font-weight: 600; color: var(--text); margin: 10px 0 4px; display: flex; justify-content: space-between; align-items: center; }
+  .history-pr-tag { font-size: 10px; background: rgba(232,240,58,0.15); color: var(--accent); border-radius: 10px; padding: 2px 7px; font-weight: 600; }
+  .history-series-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 2px; }
+  .history-series-table td { padding: 3px 4px; color: var(--text2); }
+  .history-series-table td:first-child { color: var(--text3); width: 44px; }
+  .history-series-table td:last-child { color: var(--green); text-align: right; }
+  .history-ex-footer { font-size: 11px; color: var(--text3); margin-top: 2px; margin-bottom: 8px; }
+  .history-descanso { font-size: 11px; color: var(--text3); border-top: 1px solid var(--border); padding-top: 8px; margin-top: 6px; }
 </style>
 </head>
 <body>
@@ -431,13 +444,25 @@ function equipoOptions(selected = '') {
   return opts.map(([v, l]) => `<option value="${v}" ${selected === v ? 'selected' : ''}>${l}</option>`).join('');
 }
 
-// ===================== PERSISTENCIA =====================
-function save() { localStorage.setItem('mulemode_v1', JSON.stringify({ rutinas: state.rutinas, historial: state.historial, videos: state.videos })); }
-function load() {
+// ===================== PERSISTENCIA (IndexedDB via localforage) =====================
+function save() {
+  localforage.setItem('mulemode_v1', { rutinas: state.rutinas, historial: state.historial, videos: state.videos })
+    .catch(e => console.error('save error', e));
+}
+async function load() {
   try {
-    const raw = localStorage.getItem('mulemode_v1') || localStorage.getItem('fuerza_v2');
-    if (!raw) { state.rutinas = defaultRutinas(); state.historial = []; state.videos = {}; return; }
-    const d = JSON.parse(raw);
+    let d = await localforage.getItem('mulemode_v1');
+    if (!d) {
+      // migración desde localStorage (primera vez)
+      const raw = localStorage.getItem('mulemode_v1') || localStorage.getItem('fuerza_v2');
+      if (raw) {
+        d = JSON.parse(raw);
+        await localforage.setItem('mulemode_v1', d);
+        localStorage.removeItem('mulemode_v1');
+        localStorage.removeItem('fuerza_v2');
+      }
+    }
+    if (!d) { state.rutinas = defaultRutinas(); state.historial = []; state.videos = {}; return; }
     state.rutinas = d.rutinas || defaultRutinas();
     state.historial = d.historial || [];
     state.videos = d.videos || {};
@@ -795,7 +820,10 @@ function terminarEntrenamiento() {
     fecha: new Date().toISOString(),
     rutinaName: state.workout.rutinaName,
     duracion,
-    ejercicios: state.workout.ejercicios.map(e => ({ nombre: e.nombre, notas: e.notaSession || '', series: e.series }))
+    volumen: vol,
+    prs,
+    descansoSeg: state.restTotal,
+    ejercicios: state.workout.ejercicios.map(e => ({ nombre: e.nombre, equipo: e.equipo || '', tipoMedida: e.tipoMedida || 'reps', notas: e.notaSession || '', series: e.series, pr: e.pr || [] }))
   };
   // populate summary modal
   document.getElementById('sum-rutina-name').textContent = state.workout.rutinaName.toUpperCase();
@@ -915,26 +943,49 @@ function renderHistorial() {
     const dateStr = `${dias[d.getDay()]} ${d.getDate()} ${meses[d.getMonth()]} · ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     const dur = h.duracion ? `${Math.floor(h.duracion/60)}min` : '—';
     const seriesHechas = h.ejercicios ? h.ejercicios.reduce((a, e) => a + (e.series ? e.series.filter(s => s.done).length : 0), 0) : 0;
+    const vol = h.volumen != null ? h.volumen : (h.ejercicios ? h.ejercicios.reduce((a,e) => a + (e.series||[]).filter(s=>s.done).reduce((b,s)=>b+(parseFloat(s.peso)||0)*(parseFloat(s.reps)||0),0), 0) : 0);
+    const volStr = vol >= 1000 ? (vol/1000).toFixed(1)+'k' : Math.round(vol);
+    const hasPRs = h.prs && h.prs.length > 0;
+
+    // detalle por ejercicio
+    const exDetail = h.ejercicios ? h.ejercicios.map(e => {
+      const seriesDone = (e.series||[]).filter(s => s.done);
+      if (seriesDone.length === 0) return '';
+      const isBand = e.equipo === 'band';
+      const isTime = e.tipoMedida === 'time';
+      const isDist = e.tipoMedida === 'dist';
+      const pesoLabel = isBand ? 'Color' : 'Kg';
+      const medLabel = isTime ? 'seg' : isDist ? 'm' : 'reps';
+      const numericPesos = seriesDone.map(s => parseFloat(s.peso)||0).filter(p=>p>0);
+      const maxPeso = numericPesos.length > 0 ? Math.max(...numericPesos) : 0;
+      const exVol = seriesDone.reduce((a,s)=>(a+(parseFloat(s.peso)||0)*(parseFloat(s.reps)||0)),0);
+      const hasPR = e.pr && e.pr.length > 0;
+      const rows = seriesDone.map((s,i) => `<tr><td>Serie ${s.idx||i+1}</td><td>${s.peso||'—'} ${isBand?'':pesoLabel.toLowerCase()}</td><td>${s.reps||'—'} ${medLabel}</td><td>✓</td></tr>`).join('');
+      const footer = !isBand && maxPeso > 0 ? `${maxPeso}kg máx${exVol>0?' · '+Math.round(exVol)+'kg vol':''}` : `${seriesDone.length} series`;
+      return `
+        <div class="history-ex-name">${e.nombre}${hasPR?'<span class="history-pr-tag">⭐ PR</span>':''}</div>
+        <table class="history-series-table"><tbody>${rows}</tbody></table>
+        <div class="history-ex-footer">${footer}${e.notas?` · "${e.notas}"`:''}</div>`;
+    }).join('') : '';
+
     return `
       <div class="history-item" id="hitem-${h.id}">
         <div style="display:flex;justify-content:space-between;align-items:flex-start" onclick="toggleHistory('${h.id}')">
-          <div>
+          <div style="flex:1;min-width:0">
             <div class="history-date">${dateStr}</div>
-            <div class="history-name">${h.rutinaName}</div>
-            <div class="history-stats">
-              <div class="history-stat">Duración <span>${dur}</span></div>
-              <div class="history-stat">Series <span>${seriesHechas}</span></div>
+            <div class="history-name">${h.rutinaName}${hasPRs?'<span class="history-pr-tag" style="margin-left:8px">⭐ '+h.prs.length+' PR</span>':''}</div>
+            <div class="history-chips">
+              <div class="history-chip">⏱ <span>${dur}</span></div>
+              <div class="history-chip">📦 <span>${seriesHechas} series</span></div>
+              ${vol > 0 ? `<div class="history-chip">⚡ <span>${volStr} kg</span></div>` : ''}
+              ${h.descansoSeg ? `<div class="history-chip">😴 <span>${h.descansoSeg}s descanso</span></div>` : ''}
             </div>
           </div>
-          <button onclick="event.stopPropagation();eliminarHistorial('${h.id}')" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;flex-shrink:0;margin-left:8px;">✕ Borrar</button>
+          <button onclick="event.stopPropagation();eliminarHistorial('${h.id}')" style="background:none;border:1px solid var(--red);color:var(--red);border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;flex-shrink:0;margin-left:8px;">✕</button>
         </div>
         <div class="history-detail" id="hdet-${h.id}">
-          ${h.ejercicios ? h.ejercicios.map(e => {
-            const maxPeso = e.series ? Math.max(...e.series.filter(s=>s.done&&s.peso).map(s=>parseFloat(s.peso)||0), 0) : 0;
-            const serDone = e.series ? e.series.filter(s=>s.done).length : 0;
-            return `<div class="history-ex"><span>${e.nombre}</span><span>${serDone} series${maxPeso>0?' · '+maxPeso+'kg max':''}</span></div>`;
-          }).join('') : ''}
-          ${h.ejercicios && h.ejercicios.some(e=>e.notas) ? `<div style="font-size:12px;color:var(--text3);margin-top:8px">${h.ejercicios.filter(e=>e.notas).map(e=>`${e.nombre}: ${e.notas}`).join(' · ')}</div>` : ''}
+          ${exDetail}
+          ${h.descansoSeg ? `<div class="history-descanso">😴 Descanso entre series: <strong style="color:var(--text)">${h.descansoSeg}s</strong></div>` : ''}
         </div>
       </div>`;
   }).join('');
@@ -1043,8 +1094,10 @@ function showToast(msg) {
 }
 
 // ===================== INIT =====================
-load();
-renderRutinas();
+(async () => {
+  await load();
+  renderRutinas();
+})();
 </script>
 </body>
 </html>
