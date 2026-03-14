@@ -1,28 +1,36 @@
 <template>
-  <div>
-    <!-- Main views -->
+  <!-- Verificando sesión -->
+  <div v-if="!store.authChecked" class="auth-loading">
+    <span class="auth-spinner"></span>
+  </div>
+
+  <!-- Sin sesión → pantalla de login -->
+  <LoginScreen v-else-if="!store.uid" />
+
+  <!-- Con sesión → app completa -->
+  <div v-else>
     <RutinasView v-if="currentPage === 'rutinas'" />
     <HistorialView v-else-if="currentPage === 'historial'" />
     <ProgresoView v-else-if="currentPage === 'progreso'" />
     <WorkoutView v-else-if="currentPage === 'workout'" @finish="onWorkoutFinish" />
 
-    <!-- Bottom nav (hidden during workout) -->
     <BottomNav v-if="currentPage !== 'workout'" :current="currentPage" @navigate="currentPage = $event" />
 
-    <!-- Global overlays & modals -->
     <RestTimerOverlay />
     <SummaryOverlay />
     <VideoModal />
     <RutinaModal />
 
-    <!-- Toast -->
     <div class="toast" :class="{ show: store.toastVisible }">{{ store.toastMessage }}</div>
   </div>
 </template>
 
 <script setup>
 import { ref, watch, onMounted } from 'vue'
+import { onAuthStateChanged } from 'firebase/auth'
+import { auth } from './firebase.js'
 import { useStore } from './store/index.js'
+import LoginScreen from './components/LoginScreen.vue'
 import RutinasView from './views/RutinasView.vue'
 import WorkoutView from './views/WorkoutView.vue'
 import HistorialView from './views/HistorialView.vue'
@@ -33,10 +41,9 @@ import SummaryOverlay from './components/SummaryOverlay.vue'
 import VideoModal from './components/VideoModal.vue'
 import RutinaModal from './components/RutinaModal.vue'
 
-const store = useStore()
+const store       = useStore()
 const currentPage = ref('rutinas')
 
-// Navigate to workout when one starts
 watch(() => store.workout, (newVal, oldVal) => {
   if (newVal) {
     currentPage.value = 'workout'
@@ -49,7 +56,35 @@ function onWorkoutFinish() {
   store.terminarEntrenamiento()
 }
 
-onMounted(async () => {
-  await store.load()
+onMounted(() => {
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      await store.load(user.uid)
+    } else {
+      store.uid = null
+    }
+    store.authChecked = true
+  })
 })
 </script>
+
+<style>
+.auth-loading {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg1);
+}
+
+.auth-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>

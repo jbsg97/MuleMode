@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
-import localforage from 'localforage'
+import { db } from '../firebase.js'
+import { doc, getDoc, setDoc } from 'firebase/firestore'
 
 export const EQUIPO_MAP = {
   'kb':   { label: 'Kettlebell',  color: '#44cc88', bg: '#1a2e1a' },
@@ -53,6 +54,8 @@ function defaultRutinas() {
 
 export const useStore = defineStore('mulemode', {
   state: () => ({
+    uid: null,
+    authChecked: false,
     rutinas: [],
     historial: [],
     videos: {},
@@ -144,37 +147,36 @@ export const useStore = defineStore('mulemode', {
 
   actions: {
     // ── PERSISTENCIA ──────────────────────────────────────────────
-    async load() {
+    async load(uid) {
+      this.uid = uid
       try {
-        let d = await localforage.getItem('mulemode_v1')
-        if (!d) {
-          const raw = localStorage.getItem('mulemode_v1') || localStorage.getItem('fuerza_v2')
-          if (raw) {
-            d = JSON.parse(raw)
-            await localforage.setItem('mulemode_v1', d)
-            localStorage.removeItem('mulemode_v1')
-            localStorage.removeItem('fuerza_v2')
-          }
+        const snap = await getDoc(doc(db, 'users', uid))
+        if (snap.exists()) {
+          const d = snap.data()
+          this.rutinas  = d.rutinas  || defaultRutinas()
+          this.historial = d.historial || []
+          this.videos   = d.videos   || {}
+        } else {
+          this.rutinas  = defaultRutinas()
+          this.historial = []
+          this.videos   = {}
         }
-        if (!d) { this.rutinas = defaultRutinas(); this.historial = []; this.videos = {}; return }
-        this.rutinas = d.rutinas || defaultRutinas()
-        this.historial = d.historial || []
-        this.videos = d.videos || {}
-        this.rutinas.forEach(r => r.ejercicios && r.ejercicios.forEach(e => {
-          if (e.video) this.videos[e.id] = e.video
-        }))
       } catch (e) {
-        this.rutinas = defaultRutinas(); this.historial = []; this.videos = {}
+        console.error('load error', e)
+        this.rutinas  = defaultRutinas()
+        this.historial = []
+        this.videos   = {}
       }
     },
 
     save() {
+      if (!this.uid) return
       const data = JSON.parse(JSON.stringify({
-        rutinas: this.rutinas,
+        rutinas:   this.rutinas,
         historial: this.historial,
-        videos: this.videos,
+        videos:    this.videos,
       }))
-      localforage.setItem('mulemode_v1', data).catch(e => console.error('save error', e))
+      setDoc(doc(db, 'users', this.uid), data).catch(e => console.error('save error', e))
     },
 
     // ── RUTINAS ──────────────────────────────────────────────────
