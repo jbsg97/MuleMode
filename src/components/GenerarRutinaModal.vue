@@ -208,6 +208,24 @@ import { useStore, EQUIPO_MAP, MUSCLE_LABELS } from '../store/index.js'
 
 const store = useStore()
 
+function checkGroqError(data) {
+  if (!data?.error) return
+  const { code, type, message } = data.error
+  if (code === 'rate_limit_exceeded' || type === 'tokens') {
+    const match = message?.match(/try again in ([^\\.]+)/i)
+    const espera = match ? ` Intenta de nuevo en ${match[1]}.` : ' Intenta más tarde.'
+    throw new Error(`límite_tokens:${espera}`)
+  }
+  throw new Error(message || 'Error desconocido de la API')
+}
+
+function groqErrorMsg(err) {
+  if (err.message?.startsWith('límite_tokens:')) {
+    return '⏳ Límite diario de tokens alcanzado.' + err.message.slice('límite_tokens:'.length)
+  }
+  return 'No pude generar las rutinas. Intenta de nuevo o simplifica tu solicitud.'
+}
+
 const step             = ref(1)
 const prompt           = ref('')
 const error            = ref('')
@@ -292,6 +310,7 @@ async function generar() {
       }),
     })
     const data = await res.json()
+    checkGroqError(data)
     let raw = (data?.choices?.[0]?.message?.content || '').replace(/```json?|```/g, '').trim()
     const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
       s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
@@ -314,7 +333,7 @@ async function generar() {
     previewOpen[0] = true
 
   } catch (err) {
-    error.value = 'No pude generar las rutinas. Intenta de nuevo o simplifica tu solicitud.'
+    error.value = groqErrorMsg(err)
     console.error('GenerarRutina error:', err)
   }
   step.value = 3
@@ -388,6 +407,7 @@ async function enviarMensaje(rutinaIdx) {
       }),
     })
     const data = await res.json()
+    checkGroqError(data)
     let raw = (data?.choices?.[0]?.message?.content || '').replace(/```json?|```/g, '').trim()
     const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
       s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
@@ -403,8 +423,11 @@ async function enviarMensaje(rutinaIdx) {
     }
 
     r._messages.push({ role: 'assistant', content: respuesta, acciones })
-  } catch {
-    r._messages.push({ role: 'assistant', content: 'Error de conexión. Revisa tu key de Groq.', accion: null })
+  } catch (err) {
+    const msg = err.message?.startsWith('límite_tokens:')
+      ? '⏳ Límite diario de tokens alcanzado.' + err.message.slice('límite_tokens:'.length)
+      : 'Error de conexión. Revisa tu key de Groq.'
+    r._messages.push({ role: 'assistant', content: msg, accion: null })
   }
 
   r._chatLoading = false

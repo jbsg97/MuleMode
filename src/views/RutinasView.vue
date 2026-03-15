@@ -329,6 +329,26 @@ function planMuscles(planId) {
 // ── AI Plan Analysis ──────────────────────────────────────────
 const planAnalysis = reactive({})  // planId → { loading, resumen, sugerencias }
 
+// Shared Groq error handler — throws with a user-friendly message
+function checkGroqError(data) {
+  if (!data?.error) return
+  const { code, type, message } = data.error
+  if (code === 'rate_limit_exceeded' || type === 'tokens') {
+    const match = message?.match(/try again in ([^\\.]+)/i)
+    const espera = match ? ` Intenta de nuevo en ${match[1]}.` : ' Intenta más tarde.'
+    throw new Error(`límite_tokens:${espera}`)
+  }
+  throw new Error(message || 'Error desconocido de la API')
+}
+
+function groqToast(err) {
+  if (err.message?.startsWith('límite_tokens:')) {
+    store.showToast('⏳ Límite diario de tokens alcanzado.' + err.message.slice('límite_tokens:'.length))
+  } else {
+    store.showToast('Error de conexión con la IA. Revisa tu key de Groq.')
+  }
+}
+
 const VALID_MUSCLES = ['chest','obliques','abs','biceps','triceps','front-deltoids',
   'abductors','quadriceps','calves','forearm','trapezius','upper-back','lower-back',
   'back-deltoids','gluteal','adductor','hamstring','left-soleus']
@@ -353,10 +373,14 @@ function buildAnalysisPrompt(planId) {
     store.memoriaEntrenador ? `Notas: ${store.memoriaEntrenador}` : null,
   ].filter(Boolean).join(' | ')
 
+  // Compact: only primary muscles to minimise token usage
   const rutinasTxt = rutinas.map(r => {
     const ejerciciosTxt = r.ejercicios.map(e => {
-      const musculos = (e.musculos || []).map(m => MUSCLE_LABELS[typeof m === 'string' ? m : m.muscle] || (typeof m === 'string' ? m : m.muscle)).join(', ')
-      return `  - ${e.nombre} (${e.series}×${e.reps})${musculos ? ': ' + musculos : ''}`
+      const prim = (e.musculos || [])
+        .filter(m => (typeof m === 'string' ? 'primario' : m.nivel) === 'primario')
+        .map(m => MUSCLE_LABELS[typeof m === 'string' ? m : m.muscle] || (typeof m === 'string' ? m : m.muscle))
+        .join(', ')
+      return `  - ${e.nombre} (${e.series}×${e.reps})${prim ? ': ' + prim : ''}`
     }).join('\n')
     return `${r.nombre} [id:${r.id}]:\n${ejerciciosTxt}`
   }).join('\n\n')
@@ -446,6 +470,7 @@ async function analizarPlan(planId) {
       }),
     })
     const data = await res.json()
+    checkGroqError(data)
     let raw = (data?.choices?.[0]?.message?.content || '').replace(/```json?|```/g, '').trim()
     const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
       s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
@@ -454,17 +479,16 @@ async function analizarPlan(planId) {
     const diasSemana = store.diasSemana || 4
     const numRutinas = rutinasDePlan(planId).length
     let sugerencias  = (json.sugerencias || []).map(s => ({ ...s, _aplicado: false, _applying: false }))
-    // Point 2: hard client-side block — never add routines beyond days/week limit
     if (numRutinas >= diasSemana) {
       sugerencias = sugerencias.filter(s => s.tipo !== 'nueva_rutina')
     }
 
     planAnalysis[planId].resumen     = json.resumen || ''
     planAnalysis[planId].sugerencias = sugerencias
-    planAnalysis[planId]._historial  = prevHistorial  // B: preserve history across analyses
+    planAnalysis[planId]._historial  = prevHistorial
   } catch (err) {
     console.error('analizarPlan error:', err)
-    store.showToast('Error al analizar el plan. Intenta de nuevo.')
+    groqToast(err)
   }
 
   planAnalysis[planId].loading = false
@@ -586,7 +610,7 @@ Mínimo 4 ejercicios, máximo 6. Solo el JSON.`
     sug._aplicado = true
   } catch (err) {
     console.error('aplicarNuevaRutina error:', err)
-    store.showToast('Error al generar la rutina. Intenta de nuevo.')
+    groqToast(err)
   }
 }
 
