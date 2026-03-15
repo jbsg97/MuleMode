@@ -124,13 +124,18 @@
           </div>
 
           <!-- AI Analysis button -->
-          <div v-if="store.geminiKey && rutinasDePlan(plan.id).length" style="padding:4px 16px 8px">
-            <button class="btn btn-outline btn-sm" style="width:100%"
-              :disabled="planAnalysis[plan.id]?.loading"
+          <div v-if="store.geminiKey && rutinasDePlan(plan.id).length" style="padding:4px 16px 8px;display:flex;gap:6px">
+            <button class="btn btn-outline btn-sm" style="flex:1"
+              :disabled="planAnalysis[plan.id]?.loading || (!!planAnalysis[plan.id]?.resumen && !planAnalysis[plan.id]?._reanalizar)"
               @click="analizarPlan(plan.id)">
               <span v-if="planAnalysis[plan.id]?.loading" class="plan-ai-spinner"></span>
               <span v-else>🤖</span>
               {{ planAnalysis[plan.id]?.loading ? 'Analizando...' : 'Analizar plan con IA' }}
+            </button>
+            <button v-if="planAnalysis[plan.id]?.resumen && !planAnalysis[plan.id]?.loading"
+              class="btn btn-outline btn-sm" style="padding:7px 10px" title="Re-analizar"
+              @click="habilitarReanalizar(plan.id)">
+              🔄
             </button>
           </div>
 
@@ -356,27 +361,35 @@ function buildAnalysisPrompt(planId) {
     return `${r.nombre} [id:${r.id}]:\n${ejerciciosTxt}`
   }).join('\n\n')
 
-  // Compute uncovered muscles to give AI explicit gap data
-  const coveredMuscles = new Set(
+  // Muscles with explicit data (may be incomplete if background generation hasn't run yet)
+  const coveredByData = new Set(
     rutinas.flatMap(r => r.ejercicios.flatMap(e =>
       (e.musculos || []).map(m => typeof m === 'string' ? m : m.muscle)
     ))
   )
-  const uncovered = VALID_MUSCLES
-    .filter(m => !coveredMuscles.has(m))
+  const uncoveredByData = VALID_MUSCLES
+    .filter(m => !coveredByData.has(m))
     .map(m => MUSCLE_LABELS[m] || m)
+
+  // Changes applied in previous analyses (B: context for re-analysis)
+  const historial = (planAnalysis[planId]?._historial || [])
+  const historialTxt = historial.length
+    ? `\nCAMBIOS YA APLICADOS (no revertir):\n${historial.map(h => `- ${h}`).join('\n')}`
+    : ''
 
   return `Eres un coach de fuerza. Analiza este plan y sugiere mejoras concretas.
 
 PLAN: ${plan?.nombre}
 PERFIL: ${perfil}
 
-RUTINAS DEL PLAN:
+RUTINAS DEL PLAN (el nombre de cada rutina indica su enfoque aunque los datos de músculos estén incompletos):
 ${rutinasTxt}
+${historialTxt}
 
-MÚSCULOS NO CUBIERTOS POR EL PLAN: ${uncovered.length ? uncovered.join(', ') : 'ninguno (cobertura completa)'}
+MÚSCULOS SIN DATOS EXPLÍCITOS: ${uncoveredByData.length ? uncoveredByData.join(', ') : 'ninguno'}
+IMPORTANTE: si el nombre o los ejercicios de una rutina ya indican que trabajan esos músculos (ej: "Tren Inferior" cubre piernas y glúteos aunque falten datos), NO los consideres ausentes.
 
-Identifica: desequilibrios push/pull, redundancias en misma rutina, ejercicios poco eficientes, y grupos musculares ausentes.
+Identifica: desequilibrios push/pull, redundancias en misma rutina, ejercicios poco eficientes, y grupos musculares REALMENTE ausentes del plan.
 
 Responde SOLO con este JSON (sin markdown, sin texto extra):
 {"resumen":"string (2-3 líneas, casual, directo)","sugerencias":[...]}
@@ -387,16 +400,30 @@ Cada sugerencia es UNO de estos formatos:
 
 Reglas:
 - Máximo 4 sugerencias, solo las más impactantes
-- Si hay 3 o más músculos importantes sin trabajar en el plan, propón una "nueva_rutina" enfocada en ellos en lugar de sobrecargar las rutinas existentes
+- "nueva_rutina" SOLO si falta una región corporal completa sin ninguna rutina que la cubra (ej: plan fullbody sin nada de core, plan solo de piernas sin upper body). NO la uses para músculos accesorios (antebrazos, sóleos, abductores aislados) ni para grupos ya cubiertos por nombre de rutina existente
 - Muscle IDs válidos para musculos_objetivo: ${VALID_MUSCLES.join(', ')}
 - Usa el equipo preferido del atleta
 - Solo el JSON, nada más`
 }
 
+function habilitarReanalizar(planId) {
+  if (!planAnalysis[planId]) return
+  const pendientes = (planAnalysis[planId].sugerencias || []).filter(s => !s._aplicado).length
+  if (pendientes > 0 && !confirm(`Hay ${pendientes} sugerencia(s) sin aplicar. ¿Re-analizar de todas formas?`)) return
+  planAnalysis[planId]._reanalizar = true
+}
+
 async function analizarPlan(planId) {
   if (!store.geminiKey) return
-  if (!planAnalysis[planId]) planAnalysis[planId] = { loading: false, resumen: '', sugerencias: [] }
-  planAnalysis[planId].loading = true
+  // A: prevent re-analyze while results are showing (unless _reanalizar flag is set)
+  if (planAnalysis[planId]?.resumen && !planAnalysis[planId]?._reanalizar) return
+
+  const prevHistorial = planAnalysis[planId]?._historial || []
+  if (!planAnalysis[planId]) planAnalysis[planId] = {}
+  planAnalysis[planId].loading    = true
+  planAnalysis[planId]._reanalizar = false
+  planAnalysis[planId].resumen    = ''
+  planAnalysis[planId].sugerencias = []
 
   try {
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -415,8 +442,9 @@ async function analizarPlan(planId) {
       s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
     const json = JSON.parse(sanitized)
 
-    planAnalysis[planId].resumen    = json.resumen || ''
+    planAnalysis[planId].resumen     = json.resumen || ''
     planAnalysis[planId].sugerencias = (json.sugerencias || []).map(s => ({ ...s, _aplicado: false, _applying: false }))
+    planAnalysis[planId]._historial  = prevHistorial  // B: preserve history across analyses
   } catch (err) {
     console.error('analizarPlan error:', err)
     store.showToast('Error al analizar el plan. Intenta de nuevo.')
@@ -435,6 +463,7 @@ async function aplicarSugerencia(planId, sug) {
     store.quitarEjercicioDeRutina(sug.rutina_id, sug.ejercicio_nombre)
     store.showToast(`✓ "${sug.ejercicio_nombre}" eliminado`)
     sug._aplicado = true
+    pushHistorial(planId, `Eliminado "${sug.ejercicio_nombre}" de ${nombreRutina(sug.rutina_id)}`)
 
   } else if (sug.tipo === 'agregar' || sug.tipo === 'reemplazar') {
     const spec = sug.ejercicio_nuevo
@@ -451,6 +480,9 @@ async function aplicarSugerencia(planId, sug) {
     }
     if (sug.tipo === 'reemplazar' && sug.ejercicio_nombre) {
       store.quitarEjercicioDeRutina(sug.rutina_id, sug.ejercicio_nombre)
+      pushHistorial(planId, `Reemplazado "${sug.ejercicio_nombre}" por "${spec.nombre}" en ${nombreRutina(sug.rutina_id)}`)
+    } else {
+      pushHistorial(planId, `Agregado "${spec.nombre}" a ${nombreRutina(sug.rutina_id)}`)
     }
     store.agregarEjercicioARutina(sug.rutina_id, ejercicio)
     store.showToast(`✓ "${spec.nombre}" agregado`)
@@ -459,6 +491,12 @@ async function aplicarSugerencia(planId, sug) {
   }
 
   sug._applying = false
+}
+
+function pushHistorial(planId, entrada) {
+  if (!planAnalysis[planId]) planAnalysis[planId] = {}
+  if (!planAnalysis[planId]._historial) planAnalysis[planId]._historial = []
+  planAnalysis[planId]._historial.push(entrada)
 }
 
 async function aplicarNuevaRutina(planId, sug) {
@@ -527,6 +565,7 @@ Mínimo 4 ejercicios, máximo 6. Solo el JSON.`
     if (store.geminiKey) generarNotasBackgroundBatch(rutinaId, ejercicios)
 
     store.showToast(`✓ Rutina "${json.nombre}" agregada al plan`)
+    pushHistorial(planId, `Nueva rutina "${json.nombre}" agregada al plan (cubre: ${(sug.musculos_objetivo || []).map(m => MUSCLE_LABELS[m] || m).join(', ')})`)
     sug._aplicado = true
   } catch (err) {
     console.error('aplicarNuevaRutina error:', err)
