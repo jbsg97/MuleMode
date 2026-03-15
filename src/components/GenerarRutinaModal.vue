@@ -158,8 +158,23 @@
             </div>
           </div>
 
+          <!-- Agregar al plan -->
+          <div class="gr-add-section">
+            <div class="gr-add-label">Agregar otra rutina al plan</div>
+            <div class="gr-add-row">
+              <input class="form-input gr-add-input" v-model="addPrompt"
+                placeholder="Ej: Agrega una rutina de piernas"
+                @keydown.enter="agregarAlPlan" />
+              <button class="gr-add-btn" :disabled="!addPrompt.trim() || addingRutina"
+                @click="agregarAlPlan">
+                <span v-if="addingRutina" class="gr-add-spinner"></span>
+                <span v-else>＋</span>
+              </button>
+            </div>
+          </div>
+
           <button class="btn btn-outline btn-sm" style="width:100%;margin-top:8px" @click="step = 1">
-            ← Generar otra
+            ← Empezar de nuevo
           </button>
         </template>
       </template>
@@ -192,6 +207,8 @@ const rutinasGeneradas = ref([])
 const previewOpen      = reactive({})
 const chatScrollRefs   = reactive({})
 const chatInputRefs    = reactive({})
+const addPrompt        = ref('')
+const addingRutina     = ref(false)
 
 const VALID_MUSCLES = ['chest','obliques','abs','biceps','triceps','front-deltoids',
   'abductors','quadriceps','calves','forearm','trapezius','upper-back','lower-back',
@@ -411,6 +428,91 @@ async function scrollChat(ri) {
   await nextTick()
   const el = chatScrollRefs[ri]
   if (el) el.scrollTop = el.scrollHeight
+}
+
+// ── Agregar rutina al plan existente ──────────────────────────
+async function agregarAlPlan() {
+  if (!addPrompt.value.trim() || addingRutina.value || !store.geminiKey) return
+  addingRutina.value = true
+
+  const genero  = store.genero || null
+  const equipo  = store.equipoPreferido.length
+    ? store.equipoPreferido.map(e => EQUIPO_LABELS_ES[e] || e).join(', ')
+    : 'kettlebell y sandbag'
+  const memoria = store.memoriaEntrenador
+
+  const perfil = [
+    genero ? `Género: ${genero}` : null,
+    store.peso || store.altura ? [store.peso ? store.peso+' kg':null, store.altura ? store.altura+' cm':null].filter(Boolean).join(', ') : null,
+    `Equipo: ${equipo}`,
+    memoria ? `Notas: ${memoria}` : null,
+  ].filter(Boolean).join(' | ')
+
+  const planActual = planResumen()
+
+  const prompt_ia = `Eres un entrenador experto. El atleta ya tiene este plan generado y quiere agregar una rutina más.
+
+PLAN ACTUAL:
+${planActual}
+
+PERFIL: ${perfil}
+
+SOLICITUD: ${addPrompt.value.trim()}
+
+Diseña UNA sola rutina nueva que complemente el plan sin repetir los mismos músculos primarios ya trabajados.
+Responde SOLO con este JSON (sin markdown, sin texto extra):
+{"nombre":"string","desc":"string","ejercicios":[{"nombre":"string","series":3,"reps":"string","equipo":"kb|sb|bb|db|bw|band|trx|","tipoMedida":"reps|time|dist","descansoRecomendado":90,"musculos_p":[],"musculos_s":[],"musculos_t":[]}]}
+
+Músculos válidos SOLO: ${VALID_MUSCLES.join(', ')}. Solo el JSON, nada más.`
+
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${store.geminiKey}` },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt_ia }],
+        temperature: 0.5,
+        max_tokens: 1500,
+      }),
+    })
+    const data = await res.json()
+    let raw = (data?.choices?.[0]?.message?.content || '').replace(/```json?|```/g, '').trim()
+    const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
+      s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
+    const json = JSON.parse(sanitized)
+    if (!json.nombre || !json.ejercicios) throw new Error('Respuesta inválida')
+
+    const nueva = {
+      ...json,
+      _guardada: false,
+      _chatOpen: false,
+      _messages: [],
+      _chatLoading: false,
+      ejercicios: (json.ejercicios || []).map(e => ({
+        ...e,
+        musculos_p: (e.musculos_p || []).filter(m => VALID_MUSCLES.includes(m)),
+        musculos_s: (e.musculos_s || []).filter(m => VALID_MUSCLES.includes(m)),
+        musculos_t: (e.musculos_t || []).filter(m => VALID_MUSCLES.includes(m)),
+      })),
+    }
+
+    const newIdx = rutinasGeneradas.value.length
+    rutinasGeneradas.value.push(nueva)
+    previewOpen[newIdx] = true
+    addPrompt.value = ''
+
+    await nextTick()
+    // Scroll to new routine
+    const lastCard = document.querySelector('.gr-rutina-card:last-child')
+    lastCard?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+  } catch (err) {
+    store.showToast('No pude generar la rutina. Intenta de nuevo.')
+    console.error('agregarAlPlan error:', err)
+  }
+
+  addingRutina.value = false
 }
 
 // ── Guardar ────────────────────────────────────────────────────
@@ -647,4 +749,45 @@ Respond ONLY with a JSON array (no markdown, no extra text):
   justify-content: center;
 }
 .gr-chat-send:disabled { opacity: 0.4; }
+
+/* Add to plan */
+.gr-add-section {
+  margin-top: 12px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+.gr-add-label {
+  font-size: 11px;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 8px;
+}
+.gr-add-row { display: flex; gap: 8px; align-items: center; }
+.gr-add-input { flex: 1; margin: 0; font-size: 13px; }
+.gr-add-btn {
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #000;
+  font-size: 18px;
+  font-weight: 700;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.gr-add-btn:disabled { opacity: 0.4; cursor: default; }
+.gr-add-spinner {
+  width: 16px; height: 16px;
+  border: 2px solid rgba(0,0,0,0.3);
+  border-top-color: #000;
+  border-radius: 50%;
+  animation: gr-spin 0.7s linear infinite;
+}
 </style>
