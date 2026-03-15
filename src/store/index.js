@@ -84,6 +84,7 @@ export const useStore = defineStore('mulemode', {
     geminiKey: '',
     genero: '',
     equipoPreferido: [],
+    equipoCustom: [],   // [{ id: 'cx_...', label: 'Anillas' }]
     peso: '',
     altura: '',
     memoriaEntrenador: '',
@@ -112,6 +113,18 @@ export const useStore = defineStore('mulemode', {
   }),
 
   getters: {
+    // Merge standard equipment with user custom equipment
+    allEquipos: (s) => {
+      const custom = Object.fromEntries(
+        (s.equipoCustom || []).map(e => [e.id, { label: e.label, color: '#c0c0c0', bg: '#252525' }])
+      )
+      return { ...EQUIPO_MAP, ...custom }
+    },
+    allEquipoOptions: (s) => {
+      const custom = (s.equipoCustom || []).map(e => [e.id, e.label])
+      return [['', '—'], ...Object.entries(EQUIPO_MAP).map(([v, { label }]) => [v, label]), ...custom]
+    },
+
     totalEntrenamientos: (s) => s.historial.length,
 
     totalVolumen: (s) => {
@@ -188,6 +201,7 @@ export const useStore = defineStore('mulemode', {
           this.geminiKey         = d.geminiKey         || ''
           this.genero            = d.genero            || ''
           this.equipoPreferido   = d.equipoPreferido   || []
+          this.equipoCustom      = d.equipoCustom      || []
           this.peso              = d.peso              || ''
           this.altura            = d.altura            || ''
           this.memoriaEntrenador = d.memoriaEntrenador || ''
@@ -220,6 +234,7 @@ export const useStore = defineStore('mulemode', {
         geminiKey:         this.geminiKey,
         genero:            this.genero,
         equipoPreferido:   this.equipoPreferido,
+        equipoCustom:      this.equipoCustom,
         peso:              this.peso,
         altura:            this.altura,
         memoriaEntrenador: this.memoriaEntrenador,

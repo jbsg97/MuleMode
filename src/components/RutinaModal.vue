@@ -56,7 +56,7 @@
           <div>
             <label class="form-label">Equipo</label>
             <select class="form-select" v-model="ex.equipo">
-              <option v-for="[val, label] in EQUIPO_OPTIONS" :key="val" :value="val">{{ label }}</option>
+              <option v-for="[val, label] in store.allEquipoOptions" :key="val" :value="val">{{ label }}</option>
             </select>
           </div>
         </div>
@@ -149,7 +149,7 @@
 
 <script setup>
 import { ref, watch } from 'vue'
-import { useStore, EQUIPO_OPTIONS, MUSCLE_LABELS } from '../store/index.js'
+import { useStore, MUSCLE_LABELS } from '../store/index.js'
 import MuscleMap from './MuscleMap.vue'
 
 const VALID_MUSCLES = ['chest','obliques','abs','biceps','triceps','front-deltoids',

@@ -118,26 +118,26 @@
                   <div v-for="(msg, mi) in r._messages" :key="mi"
                     :class="['gr-msg', msg.role === 'user' ? 'gr-msg--user' : 'gr-msg--coach']">
                     <div class="gr-msg-text">{{ msg.content }}</div>
-                    <!-- Action proposal -->
-                    <div v-if="msg.accion && !msg.accion._aplicada" class="gr-accion">
-                      <div class="gr-accion-preview">
-                        <span v-if="msg.accion.tipo === 'agregar'">
-                          ➕ Agregar: <strong>{{ msg.accion.ejercicio?.nombre }}</strong>
-                          ({{ msg.accion.ejercicio?.series }}×{{ msg.accion.ejercicio?.reps }})
+                    <!-- Action proposals -->
+                    <div v-if="msg.acciones?.length && !msg._aplicado" class="gr-accion">
+                      <div v-for="(ac, ai) in msg.acciones" :key="ai" class="gr-accion-preview">
+                        <span v-if="ac.tipo === 'agregar'">
+                          ➕ <strong>{{ ac.ejercicio?.nombre }}</strong>
+                          ({{ ac.ejercicio?.series }}×{{ ac.ejercicio?.reps }})
                         </span>
                         <span v-else>
-                          ✕ Quitar: <strong>{{ msg.accion.ejercicio_nombre }}</strong>
+                          ✕ Quitar: <strong>{{ ac.ejercicio_nombre }}</strong>
                         </span>
-                        <span v-if="msg.accion.rutina_idx !== ri" class="gr-accion-otro">
-                          en {{ rutinasGeneradas[msg.accion.rutina_idx]?.nombre || 'otra rutina' }}
+                        <span v-if="ac.rutina_idx !== ri" class="gr-accion-otro">
+                          en {{ rutinasGeneradas[ac.rutina_idx]?.nombre || 'otra rutina' }}
                         </span>
                       </div>
-                      <button class="gr-accion-btn" @click="aplicarCambio(ri, msg.accion, msg)">
-                        Aplicar cambio
+                      <button class="gr-accion-btn" @click="aplicarCambios(ri, msg.acciones, msg)">
+                        Aplicar {{ msg.acciones.length > 1 ? `${msg.acciones.length} cambios` : 'cambio' }}
                       </button>
                     </div>
-                    <div v-else-if="msg.accion?._aplicada" class="gr-accion-done">
-                      ✓ Cambio aplicado
+                    <div v-else-if="msg._aplicado" class="gr-accion-done">
+                      ✓ {{ msg.acciones?.length > 1 ? 'Cambios aplicados' : 'Cambio aplicado' }}
                     </div>
                   </div>
                   <div v-if="r._chatLoading" class="gr-msg gr-msg--coach">
@@ -232,9 +232,9 @@ function buildPlanPrompt() {
   const genero  = store.genero || null
   const peso    = store.peso   ? `${store.peso} kg`   : null
   const altura  = store.altura ? `${store.altura} cm` : null
-  const equipo  = store.equipoPreferido.length
-    ? store.equipoPreferido.map(e => EQUIPO_LABELS_ES[e] || e).join(', ')
-    : 'kettlebell y sandbag'
+  const equipoStd    = store.equipoPreferido.map(e => EQUIPO_LABELS_ES[e] || e)
+  const equipoCustom = (store.equipoCustom || []).map(e => e.label)
+  const equipo       = [...equipoStd, ...equipoCustom].join(', ') || 'kettlebell y sandbag'
   const memoria = store.memoriaEntrenador
 
   const perfil = [
@@ -253,13 +253,13 @@ SOLICITUD:
 ${prompt.value.trim()}
 
 Responde SOLO con este JSON (sin markdown, sin texto extra):
-{"rutinas":[{"nombre":"string","desc":"string","ejercicios":[{"nombre":"string","series":3,"reps":"string","equipo":"kb|sb|bb|db|bw|band|trx|","tipoMedida":"reps|time|dist","descansoRecomendado":90,"musculos_p":[],"musculos_s":[],"musculos_t":[]}]}]}
+{"rutinas":[{"nombre":"string","desc":"string (músculos principales, muy corto)","ejercicios":[{"nombre":"string","series":3,"reps":"string","equipo":"kb|sb|bb|db|bw|band|trx|","tipoMedida":"reps|time|dist","descansoRecomendado":90}]}]}
 
 Reglas:
-- Músculos válidos SOLO: ${VALID_MUSCLES.join(', ')}
-- Adapta ejercicios al equipo preferido
-- tipoMedida "time" para isométricos, "dist" para carries, "reps" para todo lo demás
-- descansoRecomendado: 60-90 fuerza, 30-60 metcon
+- Mínimo 4 ejercicios, máximo 7 por rutina
+- Adapta ejercicios al equipo preferido del atleta
+- tipoMedida: "time" para isométricos/planchas, "dist" para carries, "reps" para todo lo demás
+- descansoRecomendado: 60-90 para fuerza, 30-60 para metcon
 - Respeta lesiones o limitaciones del perfil
 - Solo el JSON, nada más`
 }
@@ -296,9 +296,9 @@ async function generar() {
       _chatLoading: false,
       ejercicios: (r.ejercicios || []).map(e => ({
         ...e,
-        musculos_p: (e.musculos_p || []).filter(m => VALID_MUSCLES.includes(m)),
-        musculos_s: (e.musculos_s || []).filter(m => VALID_MUSCLES.includes(m)),
-        musculos_t: (e.musculos_t || []).filter(m => VALID_MUSCLES.includes(m)),
+        musculos_p: [],
+        musculos_s: [],
+        musculos_t: [],
       })),
     }))
     previewOpen[0] = true
@@ -339,18 +339,18 @@ PERFIL DEL ATLETA:
 ${[genero?`Género: ${genero}`:null, (peso||altura)?[peso,altura].filter(Boolean).join(', '):null, `Equipo: ${equipo}`, memoria?`Notas: ${memoria}`:null].filter(Boolean).join(' | ')}
 
 Responde SOLO con este JSON (sin markdown, sin texto extra):
-{"respuesta":"string","accion":null}
+{"respuesta":"string","acciones":[]}
 
-Formato de "accion" cuando propones un cambio:
-- Para agregar: {"tipo":"agregar","rutina_idx":${rutinaIdx},"ejercicio":{"nombre":"string","series":3,"reps":"string","equipo":"kb","tipoMedida":"reps","descansoRecomendado":90,"musculos_p":[],"musculos_s":[],"musculos_t":[]}}
+Formato de cada objeto en "acciones":
+- Para agregar: {"tipo":"agregar","rutina_idx":${rutinaIdx},"ejercicio":{"nombre":"string","series":3,"reps":"string","equipo":"kb","tipoMedida":"reps","descansoRecomendado":90}}
 - Para quitar: {"tipo":"quitar","rutina_idx":${rutinaIdx},"ejercicio_nombre":"nombre exacto del ejercicio"}
 
 Reglas:
-- Músculos válidos SOLO: ${VALID_MUSCLES.join(', ')}
-- Si el atleta pide agregar algo que ya trabaja los mismos músculos primarios en OTRO día del plan, adviértelo en la respuesta pero igual incluye la accion si el atleta confirma o ya aceptó
-- Si el atleta dice "sí", "dale", "ok", "hazlo" o confirma el cambio, incluye la accion directamente
-- Habla como un cuate que sabe de entrenamiento — casual, sin rodeos, máx 3 oraciones
-- Si no propones ningún cambio concreto, pon accion: null`
+- Si el atleta pide 2 o más ejercicios, incluye uno por objeto en el array "acciones"
+- Si el atleta pide agregar algo que ya trabaja los mismos músculos en OTRO día del plan, adviértelo pero igual incluye la accion si confirma
+- Si el atleta dice "sí", "dale", "ok" o confirma, incluye las acciones directamente
+- Habla como un cuate — casual, sin rodeos, máx 3 oraciones
+- Si no propones ningún cambio concreto, pon acciones: []`
 }
 
 async function enviarMensaje(rutinaIdx) {
@@ -383,16 +383,16 @@ async function enviarMensaje(rutinaIdx) {
       s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
 
     let respuesta = 'No pude responder, intenta de nuevo.'
-    let accion = null
+    let acciones = []
     try {
       const json = JSON.parse(sanitized)
       respuesta = json.respuesta || respuesta
-      if (json.accion && json.accion.tipo) accion = json.accion
+      acciones = (json.acciones || []).filter(a => a?.tipo)
     } catch {
-      respuesta = raw // fallback: show raw text
+      respuesta = raw
     }
 
-    r._messages.push({ role: 'assistant', content: respuesta, accion })
+    r._messages.push({ role: 'assistant', content: respuesta, acciones })
   } catch {
     r._messages.push({ role: 'assistant', content: 'Error de conexión. Revisa tu key de Groq.', accion: null })
   }
@@ -401,27 +401,21 @@ async function enviarMensaje(rutinaIdx) {
   await scrollChat(rutinaIdx)
 }
 
-function aplicarCambio(rutinaIdx, accion, msg) {
-  const targetIdx = accion.rutina_idx ?? rutinaIdx
-  const target    = rutinasGeneradas.value[targetIdx]
-  if (!target) return
+function aplicarCambios(rutinaIdx, acciones, msg) {
+  acciones.forEach(accion => {
+    const targetIdx = accion.rutina_idx ?? rutinaIdx
+    const target    = rutinasGeneradas.value[targetIdx]
+    if (!target) return
 
-  if (accion.tipo === 'agregar' && accion.ejercicio) {
-    const ex = {
-      ...accion.ejercicio,
-      musculos_p: (accion.ejercicio.musculos_p || []).filter(m => VALID_MUSCLES.includes(m)),
-      musculos_s: (accion.ejercicio.musculos_s || []).filter(m => VALID_MUSCLES.includes(m)),
-      musculos_t: (accion.ejercicio.musculos_t || []).filter(m => VALID_MUSCLES.includes(m)),
+    if (accion.tipo === 'agregar' && accion.ejercicio) {
+      target.ejercicios.push({ ...accion.ejercicio, musculos_p: [], musculos_s: [], musculos_t: [] })
+    } else if (accion.tipo === 'quitar' && accion.ejercicio_nombre) {
+      target.ejercicios = target.ejercicios.filter(e =>
+        e.nombre.toLowerCase() !== accion.ejercicio_nombre.toLowerCase())
     }
-    target.ejercicios.push(ex)
     target.desc = `${target.ejercicios.length} ejercicios`
-  } else if (accion.tipo === 'quitar' && accion.ejercicio_nombre) {
-    target.ejercicios = target.ejercicios.filter(e =>
-      e.nombre.toLowerCase() !== accion.ejercicio_nombre.toLowerCase())
-    target.desc = `${target.ejercicios.length} ejercicios`
-  }
-
-  msg.accion._aplicada = true
+  })
+  msg._aplicado = true
 }
 
 async function scrollChat(ri) {
@@ -436,9 +430,9 @@ async function agregarAlPlan() {
   addingRutina.value = true
 
   const genero  = store.genero || null
-  const equipo  = store.equipoPreferido.length
-    ? store.equipoPreferido.map(e => EQUIPO_LABELS_ES[e] || e).join(', ')
-    : 'kettlebell y sandbag'
+  const equipoStd    = store.equipoPreferido.map(e => EQUIPO_LABELS_ES[e] || e)
+  const equipoCustom = (store.equipoCustom || []).map(e => e.label)
+  const equipo       = [...equipoStd, ...equipoCustom].join(', ') || 'kettlebell y sandbag'
   const memoria = store.memoriaEntrenador
 
   const perfil = [
@@ -459,11 +453,11 @@ PERFIL: ${perfil}
 
 SOLICITUD: ${addPrompt.value.trim()}
 
-Diseña UNA sola rutina nueva que complemente el plan sin repetir los mismos músculos primarios ya trabajados.
+Diseña UNA sola rutina nueva que complemente el plan sin repetir los mismos grupos musculares.
 Responde SOLO con este JSON (sin markdown, sin texto extra):
-{"nombre":"string","desc":"string","ejercicios":[{"nombre":"string","series":3,"reps":"string","equipo":"kb|sb|bb|db|bw|band|trx|","tipoMedida":"reps|time|dist","descansoRecomendado":90,"musculos_p":[],"musculos_s":[],"musculos_t":[]}]}
+{"nombre":"string","desc":"string","ejercicios":[{"nombre":"string","series":3,"reps":"string","equipo":"kb|sb|bb|db|bw|band|trx|","tipoMedida":"reps|time|dist","descansoRecomendado":90}]}
 
-Músculos válidos SOLO: ${VALID_MUSCLES.join(', ')}. Solo el JSON, nada más.`
+Mínimo 4 ejercicios, máximo 7. Solo el JSON, nada más.`
 
   try {
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -491,9 +485,9 @@ Músculos válidos SOLO: ${VALID_MUSCLES.join(', ')}. Solo el JSON, nada más.`
       _chatLoading: false,
       ejercicios: (json.ejercicios || []).map(e => ({
         ...e,
-        musculos_p: (e.musculos_p || []).filter(m => VALID_MUSCLES.includes(m)),
-        musculos_s: (e.musculos_s || []).filter(m => VALID_MUSCLES.includes(m)),
-        musculos_t: (e.musculos_t || []).filter(m => VALID_MUSCLES.includes(m)),
+        musculos_p: [],
+        musculos_s: [],
+        musculos_t: [],
       })),
     }
 
@@ -526,11 +520,7 @@ function toRutinaEjercicios(r) {
     tipoMedida: e.tipoMedida || 'reps',
     descansoRecomendado: parseInt(e.descansoRecomendado) || 90,
     notas: { respiracion: '', forma: '', tips: '' },
-    musculos: [
-      ...(e.musculos_p || []).map(m => ({ muscle: m, nivel: 'primario' })),
-      ...(e.musculos_s || []).map(m => ({ muscle: m, nivel: 'secundario' })),
-      ...(e.musculos_t || []).map(m => ({ muscle: m, nivel: 'terciario' })),
-    ],
+    musculos: [],
   }))
 }
 
@@ -564,13 +554,16 @@ async function generarNotasBackground(rutinaName, ejercicios) {
     `- ${e.nombre}${EQUIPO_EN[e.equipo] ? ` (${EQUIPO_EN[e.equipo]})` : ''}`
   ).join('\n')
 
-  const prompt = `You are a strength coach. For each exercise, generate training cues in Spanish, casual friendly tone — like advice from a knowledgeable friend. No "recuerda", no "asegúrate", direct and specific.${genero ? ` User is ${genero}.` : ''}
+  const prompt = `You are a strength coach. For each exercise, generate muscles worked and training cues in Spanish (casual friendly tone, no "recuerda", no "asegúrate").${genero ? ` User is ${genero}.` : ''}
 
 Exercises:
 ${lista}
 
+Valid muscle IDs: ${VALID_MUSCLES.join(', ')}
+Primary = >60% MVC, secondary = 30-60%, tertiary = <30%.
+
 Respond ONLY with a JSON array (no markdown, no extra text):
-[{"nombre":"exact name as given","respiracion":"one sentence when to inhale/exhale","forma":"2 sentences key technique points","tips":"1 sentence what to do if they don't feel the target muscle"}]`
+[{"nombre":"exact name as given","musculos_p":["muscle"],"musculos_s":["muscle"],"musculos_t":[],"respiracion":"one sentence when to inhale/exhale","forma":"2 sentences key technique points","tips":"1 sentence if they don't feel the target muscle"}]`
 
   try {
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -580,26 +573,31 @@ Respond ONLY with a JSON array (no markdown, no extra text):
         model: 'llama-3.3-70b-versatile',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0,
-        max_tokens: 1500,
+        max_tokens: 2000,
       }),
     })
     const data = await res.json()
     let raw = (data?.choices?.[0]?.message?.content || '').replace(/```json?|```/g, '').trim()
     const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
       s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
-    const notas = JSON.parse(sanitized)
+    const resultados = JSON.parse(sanitized)
 
-    // Find the saved routine and patch exercises
     const rutina = store.rutinas.slice().reverse().find(r => r.nombre === rutinaName)
     if (!rutina) return
 
-    notas.forEach(n => {
+    resultados.forEach(n => {
       const ex = rutina.ejercicios.find(e => e.nombre === n.nombre)
-      if (ex) ex.notas = { respiracion: n.respiracion || '', forma: n.forma || '', tips: n.tips || '' }
+      if (!ex) return
+      ex.notas = { respiracion: n.respiracion || '', forma: n.forma || '', tips: n.tips || '' }
+      ex.musculos = [
+        ...(n.musculos_p || []).filter(m => VALID_MUSCLES.includes(m)).map(m => ({ muscle: m, nivel: 'primario' })),
+        ...(n.musculos_s || []).filter(m => VALID_MUSCLES.includes(m)).map(m => ({ muscle: m, nivel: 'secundario' })),
+        ...(n.musculos_t || []).filter(m => VALID_MUSCLES.includes(m)).map(m => ({ muscle: m, nivel: 'terciario' })),
+      ]
     })
 
     store.save()
-    store.showToast(`✓ Notas generadas para "${rutinaName}"`)
+    store.showToast(`✓ Músculos y notas generados para "${rutinaName}"`)
   } catch (err) {
     console.error('generarNotas error:', err)
   }

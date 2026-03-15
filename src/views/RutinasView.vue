@@ -115,13 +115,13 @@
 
 <script setup>
 import { reactive } from 'vue'
-import { useStore, EQUIPO_MAP, MUSCLE_LABELS } from '../store/index.js'
+import { useStore, MUSCLE_LABELS } from '../store/index.js'
 import MuscleMap from '../components/MuscleMap.vue'
 
 defineEmits(['settings'])
 
 const store = useStore()
-const equipoMap = EQUIPO_MAP
+const equipoMap = store.allEquipos
 const openCards = reactive({})
 
 function toggleCard(id) {

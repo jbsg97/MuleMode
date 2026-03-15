@@ -111,14 +111,14 @@
 
 <script setup>
 import { reactive, watch } from 'vue'
-import { useStore, EQUIPO_MAP } from '../store/index.js'
+import { useStore } from '../store/index.js'
 import MuscleMap from '../components/MuscleMap.vue'
 import ExerciseChat from '../components/ExerciseChat.vue'
 
 defineEmits(['finish'])
 
 const store     = useStore()
-const equipoMap = EQUIPO_MAP
+const equipoMap = store.allEquipos
 const collapsed = reactive({})
 const showMap   = reactive({})
 

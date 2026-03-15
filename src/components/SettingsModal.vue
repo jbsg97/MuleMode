@@ -44,9 +44,9 @@
 
       <!-- Equipo preferido -->
       <div style="margin-bottom:24px;border-top:1px solid var(--border);padding-top:16px">
-        <label class="form-label">Equipo preferido</label>
-        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px">
-          <button v-for="[val, label] in EQUIPO_OPTIONS" :key="val" type="button"
+        <label class="form-label">Equipo disponible</label>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px">
+          <button v-for="[val, label] in store.allEquipoOptions.slice(1)" :key="val" type="button"
             @click="toggleEquipo(val)"
             :style="{
               padding:'8px 14px',
@@ -59,8 +59,26 @@
             {{ label }}
           </button>
         </div>
+
+        <!-- Custom equipment -->
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input class="form-input" v-model="nuevoEquipo" placeholder="Agregar herramienta..."
+            style="flex:1;margin:0;font-size:13px" @keydown.enter="agregarEquipoCustom" />
+          <button class="btn btn-outline btn-sm" @click="agregarEquipoCustom"
+            :disabled="!nuevoEquipo.trim()">＋</button>
+        </div>
+        <div v-if="store.equipoCustom.length" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+          <span v-for="eq in store.equipoCustom" :key="eq.id"
+            style="display:inline-flex;align-items:center;gap:5px;background:var(--bg3);
+                   border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:12px;color:var(--text2)">
+            {{ eq.label }}
+            <button @click="eliminarEquipoCustom(eq.id)"
+              style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:0;line-height:1">✕</button>
+          </span>
+        </div>
+
         <div style="font-size:11px;color:var(--text3)">
-          La IA priorizará estos equipos al sugerir ejercicios. Puedes elegir varios.
+          Selecciona los equipos que tienes. La IA los priorizará al sugerir ejercicios.
         </div>
       </div>
 
@@ -122,10 +140,9 @@
 import { ref, watch } from 'vue'
 import { signOut } from 'firebase/auth'
 import { auth } from '../firebase.js'
-import { useStore, EQUIPO_MAP } from '../store/index.js'
+import { useStore } from '../store/index.js'
 
 const GENERO_OPTIONS = [['hombre', '♂ Hombre'], ['mujer', '♀ Mujer'], ['', 'No especificar']]
-const EQUIPO_OPTIONS = Object.entries(EQUIPO_MAP).map(([val, { label }]) => [val, label])
 
 defineProps({ visible: Boolean })
 const emit = defineEmits(['close'])
@@ -136,6 +153,7 @@ const generoInput = ref('')
 const equipoInput = ref([])
 const pesoInput   = ref('')
 const alturaInput = ref('')
+const nuevoEquipo = ref('')
 
 watch(() => store.geminiKey,       (val) => { keyInput.value    = val },            { immediate: true })
 watch(() => store.genero,          (val) => { generoInput.value = val },            { immediate: true })
@@ -147,6 +165,21 @@ function toggleEquipo(val) {
   const idx = equipoInput.value.indexOf(val)
   if (idx === -1) equipoInput.value.push(val)
   else equipoInput.value.splice(idx, 1)
+}
+
+function agregarEquipoCustom() {
+  const label = nuevoEquipo.value.trim()
+  if (!label) return
+  const id = 'cx_' + Date.now()
+  store.equipoCustom.push({ id, label })
+  store.save()
+  nuevoEquipo.value = ''
+}
+
+function eliminarEquipoCustom(id) {
+  store.equipoCustom = store.equipoCustom.filter(e => e.id !== id)
+  store.equipoPreferido = store.equipoPreferido.filter(v => v !== id)
+  store.save()
 }
 
 function guardar() {
