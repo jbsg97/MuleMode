@@ -139,12 +139,25 @@
             <div class="plan-analysis-resumen">{{ planAnalysis[plan.id].resumen }}</div>
             <div v-for="(s, si) in planAnalysis[plan.id].sugerencias" :key="si" class="plan-sug-card">
               <div class="plan-sug-header">
-                <span :class="['plan-sug-badge', 'plan-sug-badge--' + s.tipo]">
-                  {{ s.tipo === 'agregar' ? '＋ Agregar' : s.tipo === 'quitar' ? '✕ Quitar' : '↔ Reemplazar' }}
+                <span :class="['plan-sug-badge', sugBadgeClass(s.tipo)]">
+                  {{ { agregar: '＋ Agregar', quitar: '✕ Quitar', reemplazar: '↔ Reemplazar', nueva_rutina: '✦ Nueva rutina' }[s.tipo] }}
                 </span>
-                <span class="plan-sug-rutina">{{ nombreRutina(s.rutina_id) }}</span>
+                <span v-if="s.tipo !== 'nueva_rutina'" class="plan-sug-rutina">{{ nombreRutina(s.rutina_id) }}</span>
               </div>
-              <div class="plan-sug-body">
+
+              <!-- Nueva rutina: show name + muscle targets -->
+              <div v-if="s.tipo === 'nueva_rutina'" class="plan-sug-body">
+                <div class="plan-sug-ex plan-sug-ex--new">{{ s.nombre_rutina }}</div>
+                <div v-if="s.musculos_objetivo?.length" style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">
+                  <span v-for="m in s.musculos_objetivo" :key="m" class="muscle-tag">
+                    {{ MUSCLE_LABELS[m] || m }}
+                  </span>
+                </div>
+                <div class="plan-sug-razon">{{ s.razon }}</div>
+              </div>
+
+              <!-- Agregar / quitar / reemplazar -->
+              <div v-else class="plan-sug-body">
                 <div v-if="s.tipo === 'quitar' || s.tipo === 'reemplazar'" class="plan-sug-ex plan-sug-ex--old">
                   {{ s.ejercicio_nombre }}
                   <span v-if="s.tipo === 'reemplazar'" style="color:var(--text3)"> → </span>
@@ -157,10 +170,11 @@
                 </div>
                 <div class="plan-sug-razon">{{ s.razon }}</div>
               </div>
+
               <div v-if="!s._aplicado" class="plan-sug-footer">
                 <button class="plan-sug-apply-btn" :disabled="s._applying" @click="aplicarSugerencia(plan.id, s)">
                   <span v-if="s._applying" class="plan-ai-spinner"></span>
-                  <span v-else>✓ Aplicar</span>
+                  <span v-else>{{ s.tipo === 'nueva_rutina' ? '✦ Generar rutina' : '✓ Aplicar' }}</span>
                 </button>
               </div>
               <div v-else class="plan-sug-done">✓ Aplicado</div>
@@ -314,16 +328,22 @@ const VALID_MUSCLES = ['chest','obliques','abs','biceps','triceps','front-deltoi
   'abductors','quadriceps','calves','forearm','trapezius','upper-back','lower-back',
   'back-deltoids','gluteal','adductor','hamstring','left-soleus']
 
+const EQUIPO_LABELS_ES = { kb:'kettlebell', sb:'sandbag', bb:'barra', db:'mancuerna', bw:'peso corporal', band:'bandas', trx:'TRX' }
+
+function sugBadgeClass(tipo) {
+  return { agregar: 'plan-sug-badge--agregar', quitar: 'plan-sug-badge--quitar', reemplazar: 'plan-sug-badge--reemplazar', nueva_rutina: 'plan-sug-badge--nueva' }[tipo] || ''
+}
+
 function buildAnalysisPrompt(planId) {
-  const plan     = store.planes.find(p => p.id === planId)
-  const rutinas  = rutinasDePlan(planId)
-  const equipo   = store.equipoPreferido.length
-    ? store.equipoPreferido.map(e => ({ kb:'kettlebell', sb:'sandbag', bb:'barra', db:'mancuerna', bw:'peso corporal', band:'bandas', trx:'TRX' }[e] || e)).join(', ')
+  const plan    = store.planes.find(p => p.id === planId)
+  const rutinas = rutinasDePlan(planId)
+  const equipo  = store.equipoPreferido.length
+    ? store.equipoPreferido.map(e => EQUIPO_LABELS_ES[e] || e).join(', ')
     : 'kettlebell y sandbag'
-  const perfil   = [
-    store.genero   ? `Género: ${store.genero}` : null,
-    store.peso     ? `Peso: ${store.peso} kg`  : null,
-    store.altura   ? `Altura: ${store.altura} cm` : null,
+  const perfil  = [
+    store.genero  ? `Género: ${store.genero}` : null,
+    store.peso    ? `Peso: ${store.peso} kg`  : null,
+    store.altura  ? `Altura: ${store.altura} cm` : null,
     `Equipo preferido: ${equipo}`,
     store.memoriaEntrenador ? `Notas: ${store.memoriaEntrenador}` : null,
   ].filter(Boolean).join(' | ')
@@ -336,6 +356,16 @@ function buildAnalysisPrompt(planId) {
     return `${r.nombre} [id:${r.id}]:\n${ejerciciosTxt}`
   }).join('\n\n')
 
+  // Compute uncovered muscles to give AI explicit gap data
+  const coveredMuscles = new Set(
+    rutinas.flatMap(r => r.ejercicios.flatMap(e =>
+      (e.musculos || []).map(m => typeof m === 'string' ? m : m.muscle)
+    ))
+  )
+  const uncovered = VALID_MUSCLES
+    .filter(m => !coveredMuscles.has(m))
+    .map(m => MUSCLE_LABELS[m] || m)
+
   return `Eres un coach de fuerza. Analiza este plan y sugiere mejoras concretas.
 
 PLAN: ${plan?.nombre}
@@ -344,18 +374,22 @@ PERFIL: ${perfil}
 RUTINAS DEL PLAN:
 ${rutinasTxt}
 
-Identifica problemas como: músculos sin trabajar, desequilibrios push/pull, redundancias dentro de la misma rutina, ejercicios poco eficientes.
+MÚSCULOS NO CUBIERTOS POR EL PLAN: ${uncovered.length ? uncovered.join(', ') : 'ninguno (cobertura completa)'}
+
+Identifica: desequilibrios push/pull, redundancias en misma rutina, ejercicios poco eficientes, y grupos musculares ausentes.
 
 Responde SOLO con este JSON (sin markdown, sin texto extra):
-{"resumen":"string (2-3 líneas, casual, directo)","sugerencias":[{"rutina_id":"id exacto","tipo":"agregar|quitar|reemplazar","ejercicio_nombre":"nombre exacto del ejercicio actual (solo para quitar/reemplazar)","ejercicio_nuevo":{"nombre":"string","series":3,"reps":"string","equipo":"kb|sb|bb|db|bw|band|trx|","tipoMedida":"reps|time|dist","descansoRecomendado":90},"razon":"1 línea"}]}
+{"resumen":"string (2-3 líneas, casual, directo)","sugerencias":[...]}
+
+Cada sugerencia es UNO de estos formatos:
+- Modificar ejercicio existente: {"rutina_id":"id exacto","tipo":"agregar|quitar|reemplazar","ejercicio_nombre":"nombre exacto (solo quitar/reemplazar)","ejercicio_nuevo":{"nombre":"string","series":3,"reps":"string","equipo":"kb|sb|bb|db|bw|band|trx|","tipoMedida":"reps|time|dist","descansoRecomendado":90},"razon":"1 línea"}
+- Nueva rutina para gaps: {"tipo":"nueva_rutina","nombre_rutina":"string","musculos_objetivo":["muscle_id1","muscle_id2"],"razon":"1 línea"}
 
 Reglas:
 - Máximo 4 sugerencias, solo las más impactantes
-- Para "agregar": omite ejercicio_nombre, incluye ejercicio_nuevo
-- Para "quitar": incluye ejercicio_nombre, omite ejercicio_nuevo
-- Para "reemplazar": incluye ambos
+- Si hay 3 o más músculos importantes sin trabajar en el plan, propón una "nueva_rutina" enfocada en ellos en lugar de sobrecargar las rutinas existentes
+- Muscle IDs válidos para musculos_objetivo: ${VALID_MUSCLES.join(', ')}
 - Usa el equipo preferido del atleta
-- Adapta al perfil del atleta
 - Solo el JSON, nada más`
 }
 
@@ -394,7 +428,10 @@ async function analizarPlan(planId) {
 async function aplicarSugerencia(planId, sug) {
   sug._applying = true
 
-  if (sug.tipo === 'quitar') {
+  if (sug.tipo === 'nueva_rutina') {
+    await aplicarNuevaRutina(planId, sug)
+
+  } else if (sug.tipo === 'quitar') {
     store.quitarEjercicioDeRutina(sug.rutina_id, sug.ejercicio_nombre)
     store.showToast(`✓ "${sug.ejercicio_nombre}" eliminado`)
     sug._aplicado = true
@@ -412,21 +449,136 @@ async function aplicarSugerencia(planId, sug) {
       notas: { respiracion: '', forma: '', tips: '' },
       musculos: [],
     }
-
-    // Quitar el anterior si es reemplazo
     if (sug.tipo === 'reemplazar' && sug.ejercicio_nombre) {
       store.quitarEjercicioDeRutina(sug.rutina_id, sug.ejercicio_nombre)
     }
-
     store.agregarEjercicioARutina(sug.rutina_id, ejercicio)
     store.showToast(`✓ "${spec.nombre}" agregado`)
     sug._aplicado = true
-
-    // Generate notes in background
     if (store.geminiKey) generarNotasBackground(sug.rutina_id, ejercicio)
   }
 
   sug._applying = false
+}
+
+async function aplicarNuevaRutina(planId, sug) {
+  const plan    = store.planes.find(p => p.id === planId)
+  const equipo  = store.equipoPreferido.length
+    ? store.equipoPreferido.map(e => EQUIPO_LABELS_ES[e] || e).join(', ')
+    : 'kettlebell y sandbag'
+  const planResumenTxt = rutinasDePlan(planId)
+    .map(r => `${r.nombre}: ${r.ejercicios.map(e => e.nombre).join(', ')}`)
+    .join('\n')
+  const musculosTxt = (sug.musculos_objetivo || [])
+    .map(m => MUSCLE_LABELS[m] || m).join(', ')
+
+  const promptIA = `Eres un entrenador experto. El atleta tiene este plan y necesita una rutina nueva para completarlo.
+
+PLAN ACTUAL "${plan?.nombre}":
+${planResumenTxt}
+
+MÚSCULOS A TRABAJAR EN LA NUEVA RUTINA: ${musculosTxt}
+NOMBRE DE LA RUTINA: ${sug.nombre_rutina}
+EQUIPO: ${equipo}
+${store.genero ? `GÉNERO: ${store.genero}` : ''}
+${store.memoriaEntrenador ? `NOTAS: ${store.memoriaEntrenador}` : ''}
+
+Diseña UNA rutina enfocada en los músculos indicados, sin repetir los mismos ejercicios del plan.
+
+Responde SOLO con este JSON (sin markdown):
+{"nombre":"string","desc":"string","ejercicios":[{"nombre":"string","series":3,"reps":"string","equipo":"kb|sb|bb|db|bw|band|trx|","tipoMedida":"reps|time|dist","descansoRecomendado":90}]}
+
+Mínimo 4 ejercicios, máximo 6. Solo el JSON.`
+
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${store.geminiKey}` },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: promptIA }],
+        temperature: 0.5,
+        max_tokens: 1500,
+      }),
+    })
+    const data = await res.json()
+    let raw = (data?.choices?.[0]?.message?.content || '').replace(/```json?|```/g, '').trim()
+    const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
+      s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
+    const json = JSON.parse(sanitized)
+    if (!json.nombre || !json.ejercicios) throw new Error('Respuesta inválida')
+
+    const ejercicios = json.ejercicios.map((e, i) => ({
+      id: `e${Date.now()}_${i}`,
+      nombre: e.nombre,
+      series: parseInt(e.series) || 3,
+      reps: e.reps || '10',
+      equipo: e.equipo || '',
+      tipoMedida: e.tipoMedida || 'reps',
+      descansoRecomendado: parseInt(e.descansoRecomendado) || 90,
+      notas: { respiracion: '', forma: '', tips: '' },
+      musculos: [],
+    }))
+
+    const rutinaId = `r${Date.now()}`
+    store.rutinas.push({ id: rutinaId, nombre: json.nombre, desc: json.desc || '', ejercicios, planId })
+    store.save()
+
+    if (store.geminiKey) generarNotasBackgroundBatch(rutinaId, ejercicios)
+
+    store.showToast(`✓ Rutina "${json.nombre}" agregada al plan`)
+    sug._aplicado = true
+  } catch (err) {
+    console.error('aplicarNuevaRutina error:', err)
+    store.showToast('Error al generar la rutina. Intenta de nuevo.')
+  }
+}
+
+async function generarNotasBackgroundBatch(rutinaId, ejercicios) {
+  const key    = store.geminiKey
+  const genero = store.genero || null
+  const EQUIPO_EN = { kb:'kettlebell', sb:'sandbag', bb:'barbell', db:'dumbbell', bw:'bodyweight', band:'resistance band', trx:'TRX' }
+  const lista = ejercicios.map(e => `- ${e.nombre}${EQUIPO_EN[e.equipo] ? ` (${EQUIPO_EN[e.equipo]})` : ''}`).join('\n')
+
+  const prompt = `You are a strength coach. For each exercise, generate muscles and cues in Spanish (casual, no "recuerda", no "asegúrate").${genero ? ` User is ${genero}.` : ''}
+
+Exercises:
+${lista}
+
+Valid muscle IDs: ${VALID_MUSCLES.join(', ')}
+Primary >60% MVC, secondary 30-60%, tertiary <30%.
+
+Respond ONLY with a JSON array (no markdown):
+[{"nombre":"exact name","musculos_p":["id"],"musculos_s":["id"],"musculos_t":[],"respiracion":"1 sentence","forma":"2 sentences technique","tips":"1 sentence if they don't feel it"}]`
+
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], temperature: 0, max_tokens: 2000 }),
+    })
+    const data = await res.json()
+    let raw = (data?.choices?.[0]?.message?.content || '').replace(/```json?|```/g, '').trim()
+    const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
+      s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
+    const resultados = JSON.parse(sanitized)
+
+    const rutina = store.rutinas.find(r => r.id === rutinaId)
+    if (!rutina) return
+    resultados.forEach(n => {
+      const ex = rutina.ejercicios.find(e => e.nombre === n.nombre)
+      if (!ex) return
+      ex.notas = { respiracion: n.respiracion || '', forma: n.forma || '', tips: n.tips || '' }
+      ex.musculos = [
+        ...(n.musculos_p || []).filter(m => VALID_MUSCLES.includes(m)).map(m => ({ muscle: m, nivel: 'primario' })),
+        ...(n.musculos_s || []).filter(m => VALID_MUSCLES.includes(m)).map(m => ({ muscle: m, nivel: 'secundario' })),
+        ...(n.musculos_t || []).filter(m => VALID_MUSCLES.includes(m)).map(m => ({ muscle: m, nivel: 'terciario' })),
+      ]
+    })
+    store.save()
+  } catch (err) {
+    console.error('generarNotasBackgroundBatch error:', err)
+  }
 }
 
 async function generarNotasBackground(rutinaId, ejercicio) {
@@ -579,6 +731,7 @@ Valid muscle IDs: ${VALID_MUSCLES.join(', ')}. Primary >60% MVC, secondary 30-60
 .plan-sug-badge--agregar   { background: rgba(68,204,136,0.15); color: #44cc88; border: 1px solid rgba(68,204,136,0.3); }
 .plan-sug-badge--quitar    { background: rgba(255,68,68,0.12);  color: #ff6666; border: 1px solid rgba(255,68,68,0.3); }
 .plan-sug-badge--reemplazar{ background: rgba(68,136,255,0.12); color: #6699ff; border: 1px solid rgba(68,136,255,0.3); }
+.plan-sug-badge--nueva     { background: rgba(232,240,58,0.12); color: var(--accent); border: 1px solid rgba(232,240,58,0.3); }
 
 .plan-sug-rutina {
   font-size: 11px;
