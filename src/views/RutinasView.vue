@@ -96,6 +96,9 @@
             </div>
             <span class="ex-row-sets" style="flex-shrink:0">{{ e.series }}×{{ e.reps }}</span>
           </div>
+          <div v-if="routineMuscles(r).length" style="padding:0 12px 4px">
+            <MuscleMap :model-value="routineMuscles(r)" readonly />
+          </div>
           <div style="padding:12px 16px">
             <button class="btn btn-accent btn-full" @click="store.iniciarEntrenamiento(r.id)">
               ▶ Iniciar entrenamiento
@@ -113,6 +116,7 @@
 <script setup>
 import { reactive } from 'vue'
 import { useStore, EQUIPO_MAP, MUSCLE_LABELS } from '../store/index.js'
+import MuscleMap from '../components/MuscleMap.vue'
 
 defineEmits(['settings'])
 
@@ -136,4 +140,17 @@ function routineDesc(r) {
 }
 
 const NIVEL_COLORS = { primario: '#ff4d4d', secundario: '#ff9900', terciario: '#ffd700' }
+
+function routineMuscles(r) {
+  const nivelOrder = { primario: 0, secundario: 1, terciario: 2 }
+  const map = {}
+  r.ejercicios.forEach(e => {
+    ;(e.musculos || []).forEach(m => {
+      const muscle = typeof m === 'string' ? m : m.muscle
+      const nivel  = typeof m === 'string' ? 'primario' : m.nivel
+      if (!map[muscle] || nivelOrder[nivel] < nivelOrder[map[muscle]]) map[muscle] = nivel
+    })
+  })
+  return Object.entries(map).map(([muscle, nivel]) => ({ muscle, nivel }))
+}
 </script>
