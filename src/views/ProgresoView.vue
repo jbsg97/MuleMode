@@ -45,6 +45,95 @@
           Sin entrenamientos esta semana
         </div>
         <MuscleMap v-else :model-value="weekMuscles" readonly />
+
+        <!-- AI Analysis Button -->
+        <div v-if="store.geminiKey && weekMuscles.length > 0" style="margin-top:12px">
+          <button class="btn btn-outline btn-sm" style="width:100%" :disabled="aiLoading" @click="analizarSemana">
+            <span v-if="aiLoading" class="ai-spinner"></span>
+            <span v-else>🤖</span>
+            {{ aiLoading ? 'Analizando...' : 'Analizar semana con IA' }}
+          </button>
+        </div>
+
+        <!-- AI Analysis Results -->
+        <div v-if="aiAnalysis" class="ai-analysis">
+          <!-- Gaps -->
+          <div class="ai-section">
+            <div class="ai-section-header" @click="gapsOpen = !gapsOpen">
+              <span>💪 Músculos sin trabajar</span>
+              <span class="ai-section-arrow">{{ gapsOpen ? '▲' : '▼' }}</span>
+            </div>
+            <div v-if="gapsOpen">
+              <div v-if="aiAnalysis.gaps.length === 0" class="ai-empty">
+                Todo cubierto esta semana, buen trabajo.
+              </div>
+              <div v-else v-for="gap in aiAnalysis.gaps" :key="gap.musculo" class="ai-gap-item">
+                <div class="ai-gap-muscle">{{ gap.musculo }}</div>
+                <div class="ai-gap-sugs">
+                  <button v-for="s in gap.sugerencias" :key="s"
+                    class="ai-tag ai-tag-btn" @click="abrirPicker(s)">
+                    {{ s }} <span class="ai-tag-plus">＋</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Redundancies -->
+          <div class="ai-section">
+            <div class="ai-section-header" @click="redundanciasOpen = !redundanciasOpen">
+              <span>🔄 Posibles redundancias</span>
+              <span class="ai-section-arrow">{{ redundanciasOpen ? '▲' : '▼' }}</span>
+            </div>
+            <div v-if="redundanciasOpen">
+              <div v-if="aiAnalysis.redundancias.length === 0" class="ai-empty">
+                Sin redundancias detectadas, buena variedad.
+              </div>
+              <div v-else v-for="r in aiAnalysis.redundancias" :key="r.ejercicios.join()"
+                class="ai-redundancia-item">
+                <div class="ai-redundancia-label">{{ r.ejercicios.join(' + ') }}</div>
+                <div class="ai-redundancia-note">{{ r.nota }}</div>
+                <div class="ai-redundancia-actions">
+                  <template v-for="ejNombre in r.ejercicios" :key="ejNombre">
+                    <div v-for="rutina in rutinasConEjercicio(ejNombre)" :key="rutina.id"
+                      class="ai-remove-row">
+                      <span class="ai-remove-info">
+                        <span class="ai-remove-ex">{{ ejNombre }}</span>
+                        <span class="ai-remove-rutina">en {{ rutina.nombre }}</span>
+                      </span>
+                      <button class="ai-remove-btn"
+                        @click="quitarDeRutina(rutina.id, ejNombre)">✕ Quitar</button>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Routine Picker Modal -->
+      <div v-if="pickerVisible" class="picker-overlay" @click.self="pickerVisible = false">
+        <div class="picker-sheet">
+          <div class="picker-title">
+            <span v-if="pickerGenerating">
+              <span class="ai-spinner"></span> Generando con IA...
+            </span>
+            <span v-else>Agregar a rutina</span>
+          </div>
+          <div class="picker-ex-name">{{ pickerExNombre }}</div>
+          <div v-if="!pickerGenerating">
+            <button v-for="rutina in store.rutinas" :key="rutina.id"
+              class="picker-option" @click="confirmarAgregarEjercicio(rutina.id)">
+              {{ rutina.nombre }}
+            </button>
+            <button class="picker-option picker-option--new"
+              @click="confirmarAgregarEjercicio('nueva')">
+              ＋ Nueva rutina
+            </button>
+            <button class="picker-cancel" @click="pickerVisible = false">Cancelar</button>
+          </div>
+        </div>
       </div>
 
       <!-- ── Records personales ─────────────────────────── -->
@@ -120,6 +209,10 @@ import MuscleMap from '../components/MuscleMap.vue'
 
 const store = useStore()
 const selectedEx = ref('')
+const aiLoading = ref(false)
+const aiAnalysis = ref(null)
+const gapsOpen = ref(true)
+const redundanciasOpen = ref(true)
 const progData = ref([])
 const progChartEl = ref(null)
 const volChartEl = ref(null)
@@ -336,6 +429,190 @@ function buildVolChart() {
   })
 }
 
+// ── Picker para agregar ejercicio a rutina ─────────────────────
+const pickerVisible   = ref(false)
+const pickerExNombre  = ref('')
+const pickerGenerating = ref(false)
+
+const VALID_MUSCLES = ['chest','obliques','abs','biceps','triceps','front-deltoids',
+  'abductors','quadriceps','calves','forearm','trapezius','upper-back','lower-back',
+  'back-deltoids','gluteal','adductor','hamstring','left-soleus']
+
+const EQUIPO_LABELS = { kb: 'kettlebell', sb: 'sandbag', bb: 'barbell', db: 'dumbbell', bw: 'bodyweight', band: 'resistance band', trx: 'TRX' }
+
+function rutinasConEjercicio(nombreEj) {
+  return store.rutinas.filter(r => r.ejercicios.some(e => e.nombre === nombreEj))
+}
+
+function abrirPicker(nombre) {
+  pickerExNombre.value = nombre
+  pickerVisible.value = true
+}
+
+async function generarDatosEjercicio(nombre) {
+  const key = store.geminiKey
+  if (!key) return null
+  const generoCtx = store.genero === 'hombre' ? 'male athlete' : store.genero === 'mujer' ? 'female athlete' : 'athlete'
+  const generoEs  = store.genero === 'hombre' ? 'hombre' : store.genero === 'mujer' ? 'mujer' : null
+  const memoria   = store.memoriaEntrenador
+  const prompt = `You are an experienced strength coach who knows this athlete well.${memoria ? ` What you know about them:\n${memoria}\n` : ''} For the exercise "${nombre}" performed by a ${generoCtx}, respond ONLY with valid JSON (no markdown, no extra text):
+{"musculos":{"primario":[],"secundario":[],"terciario":[]},"respiracion":"string","forma":"string","tips":"string"}
+
+Write all text fields in Spanish, casual tone. No "recuerda", no "asegúrate". Direct, specific.
+- "respiracion": one sentence, when to inhale/exhale.
+- "forma": 2 sentences, key technique points.
+- "tips": 1-2 sentences, what to do if they don't feel the target muscle.${generoEs ? ` The user is ${generoEs}, adapt terminology as needed.` : ''}
+For musculos use ONLY: ${VALID_MUSCLES.join(', ')}. Primary >60% MVC, secondary 30-60%, tertiary <30%.`
+
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], temperature: 0, max_tokens: 600 }),
+    })
+    const data = await res.json()
+    let raw = (data?.choices?.[0]?.message?.content || '').replace(/```json?|```/g, '').trim()
+    const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
+      s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
+    const json = JSON.parse(sanitized)
+    const filter = (arr) => (arr || []).filter(m => VALID_MUSCLES.includes(m))
+    const m = json.musculos || {}
+    return {
+      musculos: [
+        ...filter(m.primario).map(muscle => ({ muscle, nivel: 'primario' })),
+        ...filter(m.secundario).map(muscle => ({ muscle, nivel: 'secundario' })),
+        ...filter(m.terciario).map(muscle => ({ muscle, nivel: 'terciario' })),
+      ],
+      notas: { respiracion: json.respiracion || '', forma: json.forma || '', tips: json.tips || '' },
+    }
+  } catch { return null }
+}
+
+async function confirmarAgregarEjercicio(rutinaId) {
+  pickerGenerating.value = true
+  const nombre = pickerExNombre.value
+
+  const ejercicio = {
+    id: 'e' + Date.now(),
+    nombre,
+    series: 3,
+    reps: '10',
+    equipo: nombre.toLowerCase().startsWith('kb') ? 'kb' : nombre.toLowerCase().startsWith('sb') ? 'sb' : '',
+    tipoMedida: 'reps',
+    notas: { respiracion: '', forma: '', tips: '' },
+    descansoRecomendado: 90,
+    musculos: [],
+  }
+
+  const generado = await generarDatosEjercicio(nombre)
+  if (generado) {
+    ejercicio.musculos = generado.musculos
+    ejercicio.notas    = generado.notas
+  }
+
+  if (rutinaId === 'nueva') {
+    store.crearRutinaConEjercicio(ejercicio)
+    store.showToast(`✓ ${nombre} agregado en nueva rutina`)
+  } else {
+    store.agregarEjercicioARutina(rutinaId, ejercicio)
+    const rutinaNombre = store.rutinas.find(r => r.id === rutinaId)?.nombre || ''
+    store.showToast(`✓ ${nombre} agregado a "${rutinaNombre}"`)
+  }
+
+  pickerGenerating.value = false
+  pickerVisible.value = false
+}
+
+function quitarDeRutina(rutinaId, ejercicioNombre) {
+  if (!confirm(`¿Quitar "${ejercicioNombre}" de esta rutina?`)) return
+  store.quitarEjercicioDeRutina(rutinaId, ejercicioNombre)
+  store.showToast(`✓ "${ejercicioNombre}" eliminado de la rutina`)
+}
+
+// ── Análisis IA de la semana ───────────────────────────────────
+const weekExercises = computed(() => {
+  const { start, end } = weekRange.value
+  const map = {}
+  store.historial
+    .filter(h => { const d = new Date(h.fecha); return d >= start && d <= end })
+    .forEach(h => {
+      ;(h.ejercicios || []).forEach(e => {
+        if (!map[e.nombre]) map[e.nombre] = new Set()
+        ;(e.musculos || []).forEach(m => {
+          const muscle = typeof m === 'string' ? m : m.muscle
+          map[e.nombre].add(muscle)
+        })
+      })
+    })
+  return Object.entries(map).map(([nombre, musculos]) => ({ nombre, musculos: [...musculos] }))
+})
+
+async function analizarSemana() {
+  if (!store.geminiKey || aiLoading.value) return
+  aiLoading.value = true
+  aiAnalysis.value = null
+
+  const musculos = weekMuscles.value.map(m => `${m.muscle} (${m.nivel})`).join(', ')
+  const ejercicios = weekExercises.value
+    .map(e => `${e.nombre}${e.musculos.length ? ` [${e.musculos.join(', ')}]` : ''}`)
+    .join('\n')
+  const genero = store.genero === 'hombre' ? 'hombre' : store.genero === 'mujer' ? 'mujer' : null
+  const memoria = store.memoriaEntrenador
+
+  const prompt = `Eres un entrenador experto analizando la semana de entrenamiento de un atleta${genero ? ` (${genero})` : ''} que hace kettlebell y sandbag.${memoria ? `\n\nLo que sabes del atleta:\n${memoria}` : ''}
+
+Ejercicios realizados esta semana:
+${ejercicios || '(ninguno)'}
+
+Músculos trabajados: ${musculos || '(ninguno)'}
+
+Analiza y responde SOLO con este JSON (sin markdown, sin texto extra):
+{
+  "gaps": [
+    { "musculo": "nombre del grupo muscular", "sugerencias": ["ejercicio 1", "ejercicio 2"] }
+  ],
+  "redundancias": [
+    { "ejercicios": ["ejercicio A", "ejercicio B"], "nota": "explicación breve de por qué son redundantes y cuál quitar" }
+  ]
+}
+
+Reglas:
+- gaps: grupos musculares importantes NO trabajados esta semana (máx 4). Sugiere 2-3 ejercicios con kettlebell o sandbag.
+- redundancias: pares/grupos de ejercicios que trabajan los mismos músculos primarios (máx 3).
+- Si no hay gaps o redundancias, devuelve arrays vacíos.
+- Responde en español, tono casual y directo.
+- Solo devuelve el JSON, nada más.`
+
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${store.geminiKey}` },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.4,
+        max_tokens: 600,
+      }),
+    })
+    const data = await res.json()
+    let raw = data?.choices?.[0]?.message?.content || ''
+    // Strip markdown code block if present
+    raw = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
+    const parsed = JSON.parse(raw)
+    aiAnalysis.value = {
+      gaps: Array.isArray(parsed.gaps) ? parsed.gaps : [],
+      redundancias: Array.isArray(parsed.redundancias) ? parsed.redundancias : [],
+    }
+  } catch {
+    aiAnalysis.value = { gaps: [], redundancias: [], error: true }
+  }
+
+  aiLoading.value = false
+}
+
+// Reset analysis when week changes
+watch(weekOffset, () => { aiAnalysis.value = null })
+
 onMounted(() => { nextTick(buildVolChart) })
 onBeforeUnmount(() => {
   if (progChartInst) progChartInst.destroy()
@@ -425,6 +702,194 @@ watch(() => store.historial.length, () => { nextTick(buildVolChart) })
   font-size: 10px;
   color: var(--text3);
   margin-top: 2px;
+}
+
+/* AI Analysis */
+.ai-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.ai-analysis {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ai-section {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.ai-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  user-select: none;
+}
+.ai-section-arrow { color: var(--text3); font-size: 10px; }
+
+.ai-empty {
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text3);
+}
+
+.ai-gap-item {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+}
+.ai-gap-muscle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.ai-gap-sugs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ai-tag-btn {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 11px;
+  color: var(--text2);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: border-color 0.15s;
+}
+.ai-tag-btn:hover { border-color: var(--accent); color: var(--accent); }
+.ai-tag-plus { font-size: 14px; color: var(--accent); line-height: 1; }
+
+.ai-redundancia-item {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+}
+.ai-redundancia-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #ff9900;
+  margin-bottom: 3px;
+}
+.ai-redundancia-note {
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+.ai-redundancia-actions { display: flex; flex-direction: column; gap: 5px; }
+.ai-remove-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+.ai-remove-info { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ai-remove-ex { font-size: 12px; font-weight: 600; color: var(--text1); }
+.ai-remove-rutina { font-size: 10px; color: var(--text3); }
+.ai-remove-btn {
+  background: none;
+  border: 1px solid var(--red);
+  border-radius: 6px;
+  color: var(--red);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+/* Picker overlay */
+.picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.picker-sheet {
+  background: var(--bg2);
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-width: 480px;
+  padding: 20px 16px 32px;
+  border-top: 1px solid var(--border);
+}
+.picker-title {
+  font-size: 12px;
+  color: var(--text3);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.picker-ex-name {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 20px;
+  color: var(--accent);
+  text-align: center;
+  margin-bottom: 16px;
+}
+.picker-option {
+  display: block;
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text1);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 13px 16px;
+  text-align: left;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+.picker-option--new {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.picker-cancel {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text3);
+  font-size: 14px;
+  padding: 12px;
+  cursor: pointer;
+  margin-top: 4px;
 }
 
 /* Trend badge */

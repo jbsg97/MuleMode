@@ -248,6 +248,21 @@ export const useStore = defineStore('mulemode', {
       this.showToast('Rutina eliminada')
     },
 
+    agregarEjercicioARutina(rutinaId, ejercicio) {
+      const r = this.rutinas.find(r => r.id === rutinaId)
+      if (r) { r.ejercicios.push(ejercicio); this.save() }
+    },
+
+    quitarEjercicioDeRutina(rutinaId, ejercicioNombre) {
+      const r = this.rutinas.find(r => r.id === rutinaId)
+      if (r) { r.ejercicios = r.ejercicios.filter(e => e.nombre !== ejercicioNombre); this.save() }
+    },
+
+    crearRutinaConEjercicio(ejercicio) {
+      this.rutinas.push({ id: 'r' + Date.now(), nombre: 'Nueva rutina', desc: '', ejercicios: [ejercicio] })
+      this.save()
+    },
+
     // ── ENTRENAMIENTO ─────────────────────────────────────────────
     iniciarEntrenamiento(rutinaId) {
       const rutina = this.rutinas.find(r => r.id === rutinaId)
