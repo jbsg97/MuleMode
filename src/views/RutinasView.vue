@@ -46,7 +46,13 @@
     </div>
 
     <!-- Rutinas list -->
-    <div class="section-pad"><div class="section-title">Mis rutinas</div></div>
+    <div class="section-pad" style="display:flex;justify-content:space-between;align-items:center">
+      <div class="section-title" style="margin:0">Mis rutinas</div>
+      <button v-if="store.geminiKey" class="btn btn-outline btn-sm"
+        @click="store.generarRutinaModalVisible = true">
+        🤖 Generar con IA
+      </button>
+    </div>
 
     <div v-if="store.rutinas.length === 0" class="empty">
       <div class="empty-icon">💪</div>

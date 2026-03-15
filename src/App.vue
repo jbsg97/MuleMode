@@ -21,6 +21,7 @@
     <SummaryOverlay />
     <VideoModal />
     <RutinaModal />
+    <GenerarRutinaModal />
     <SettingsModal :visible="settingsVisible" @close="settingsVisible = false" />
 
     <div class="toast" :class="{ show: store.toastVisible }">{{ store.toastMessage }}</div>
@@ -43,6 +44,7 @@ import SummaryOverlay from './components/SummaryOverlay.vue'
 import VideoModal from './components/VideoModal.vue'
 import RutinaModal from './components/RutinaModal.vue'
 import SettingsModal from './components/SettingsModal.vue'
+import GenerarRutinaModal from './components/GenerarRutinaModal.vue'
 
 const store          = useStore()
 const currentPage    = ref('rutinas')

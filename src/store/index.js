@@ -84,6 +84,8 @@ export const useStore = defineStore('mulemode', {
     geminiKey: '',
     genero: '',
     equipoPreferido: [],
+    peso: '',
+    altura: '',
     memoriaEntrenador: '',
     workout: null,
     pendingRegistro: null,
@@ -97,6 +99,7 @@ export const useStore = defineStore('mulemode', {
     // modals
     editingRutinaId: null,
     rutinaModalVisible: false,
+    generarRutinaModalVisible: false,
     videoModalVisible: false,
     videoModalTitle: '',
     videoModalUrl: '',
@@ -185,6 +188,8 @@ export const useStore = defineStore('mulemode', {
           this.geminiKey         = d.geminiKey         || ''
           this.genero            = d.genero            || ''
           this.equipoPreferido   = d.equipoPreferido   || []
+          this.peso              = d.peso              || ''
+          this.altura            = d.altura            || ''
           this.memoriaEntrenador = d.memoriaEntrenador || ''
           if (d.workout) {
             this.workout = d.workout
@@ -215,6 +220,8 @@ export const useStore = defineStore('mulemode', {
         geminiKey:         this.geminiKey,
         genero:            this.genero,
         equipoPreferido:   this.equipoPreferido,
+        peso:              this.peso,
+        altura:            this.altura,
         memoriaEntrenador: this.memoriaEntrenador,
         workout:           this.workout || null,
       }))

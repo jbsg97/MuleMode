@@ -28,6 +28,18 @@
         <div style="font-size:11px;color:var(--text3);margin-top:6px">
           Se usa para personalizar los tips y búsqueda de videos con IA
         </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+          <div>
+            <label class="form-label">Peso (kg)</label>
+            <input class="form-input" type="number" min="30" max="250" placeholder="75"
+              v-model.number="pesoInput">
+          </div>
+          <div>
+            <label class="form-label">Altura (cm)</label>
+            <input class="form-input" type="number" min="100" max="250" placeholder="175"
+              v-model.number="alturaInput">
+          </div>
+        </div>
       </div>
 
       <!-- Equipo preferido -->
@@ -122,10 +134,14 @@ const store = useStore()
 const keyInput    = ref('')
 const generoInput = ref('')
 const equipoInput = ref([])
+const pesoInput   = ref('')
+const alturaInput = ref('')
 
-watch(() => store.geminiKey,       (val) => { keyInput.value    = val },          { immediate: true })
-watch(() => store.genero,          (val) => { generoInput.value = val },          { immediate: true })
+watch(() => store.geminiKey,       (val) => { keyInput.value    = val },            { immediate: true })
+watch(() => store.genero,          (val) => { generoInput.value = val },            { immediate: true })
 watch(() => store.equipoPreferido, (val) => { equipoInput.value = [...(val||[])] }, { immediate: true })
+watch(() => store.peso,            (val) => { pesoInput.value   = val },            { immediate: true })
+watch(() => store.altura,          (val) => { alturaInput.value = val },            { immediate: true })
 
 function toggleEquipo(val) {
   const idx = equipoInput.value.indexOf(val)
@@ -137,6 +153,8 @@ function guardar() {
   store.geminiKey       = keyInput.value.trim()
   store.genero          = generoInput.value
   store.equipoPreferido = [...equipoInput.value]
+  store.peso            = pesoInput.value   || ''
+  store.altura          = alturaInput.value || ''
   store.save()
   store.showToast('Ajustes guardados ✓')
   emit('close')
