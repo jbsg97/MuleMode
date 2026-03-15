@@ -173,6 +173,14 @@
             </div>
           </div>
 
+          <!-- Guardar como plan -->
+          <div class="gr-add-section" style="margin-top:8px">
+            <div class="gr-add-label">Nombre del plan (opcional)</div>
+            <input class="form-input gr-add-input" style="width:100%;margin:0"
+              v-model="planNombre"
+              placeholder="Ej: Plan Doomsday — se agrupan todas las rutinas" />
+          </div>
+
           <button class="btn btn-outline btn-sm" style="width:100%;margin-top:8px" @click="step = 1">
             ← Empezar de nuevo
           </button>
@@ -188,7 +196,7 @@
     </div>
     <div class="modal-footer" v-else-if="step === 3 && !error">
       <button class="btn btn-accent btn-full" @click="guardarTodas">
-        Guardar todas
+        {{ planNombre.trim() ? `Guardar como "${planNombre.trim()}"` : 'Guardar todas' }}
       </button>
     </div>
   </div>
@@ -209,6 +217,7 @@ const chatScrollRefs   = reactive({})
 const chatInputRefs    = reactive({})
 const addPrompt        = ref('')
 const addingRutina     = ref(false)
+const planNombre       = ref('')
 
 const VALID_MUSCLES = ['chest','obliques','abs','biceps','triceps','front-deltoids',
   'abductors','quadriceps','calves','forearm','trapezius','upper-back','lower-back',
@@ -225,6 +234,7 @@ const QUICK_PROMPTS = [
 
 function cerrar() {
   store.generarRutinaModalVisible = false
+  planNombre.value = ''
 }
 
 // ── Generar plan inicial ───────────────────────────────────────
@@ -536,9 +546,29 @@ function guardarRutina(ri) {
 }
 
 function guardarTodas() {
-  rutinasGeneradas.value.forEach((_, i) => {
-    if (!rutinasGeneradas.value[i]._guardada) guardarRutina(i)
-  })
+  const nombre = planNombre.value.trim()
+  if (nombre) {
+    const planId = store.crearPlan(nombre)
+    let seq = 0
+    rutinasGeneradas.value.forEach(r => {
+      if (!r._guardada) {
+        const ejercicios = toRutinaEjercicios(r)
+        store.rutinas.push({ id: `r${Date.now()}_${seq++}`, nombre: r.nombre, desc: r.desc, ejercicios, planId })
+        r._guardada = true
+        if (store.geminiKey) generarNotasBackground(r.nombre, r.ejercicios)
+      } else {
+        // Already saved individually – move to plan
+        const saved = store.rutinas.slice().reverse().find(rt => rt.nombre === r.nombre)
+        if (saved) store.moverRutinaAPlan(saved.id, planId)
+      }
+    })
+    store.save()
+    store.showToast(`Plan "${nombre}" guardado ✓`)
+  } else {
+    rutinasGeneradas.value.forEach((_, i) => {
+      if (!rutinasGeneradas.value[i]._guardada) guardarRutina(i)
+    })
+  }
   cerrar()
 }
 

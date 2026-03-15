@@ -85,6 +85,7 @@ export const useStore = defineStore('mulemode', {
     genero: '',
     equipoPreferido: [],
     equipoCustom: [],   // [{ id: 'cx_...', label: 'Anillas' }]
+    planes: [],         // [{ id: 'p_...', nombre: '...' }]
     peso: '',
     altura: '',
     memoriaEntrenador: '',
@@ -202,6 +203,7 @@ export const useStore = defineStore('mulemode', {
           this.genero            = d.genero            || ''
           this.equipoPreferido   = d.equipoPreferido   || []
           this.equipoCustom      = d.equipoCustom      || []
+          this.planes            = d.planes            || []
           this.peso              = d.peso              || ''
           this.altura            = d.altura            || ''
           this.memoriaEntrenador = d.memoriaEntrenador || ''
@@ -234,7 +236,8 @@ export const useStore = defineStore('mulemode', {
         geminiKey:         this.geminiKey,
         genero:            this.genero,
         equipoPreferido:   this.equipoPreferido,
-        equipoCustom:      this.equipoCustom,
+            equipoCustom:      this.equipoCustom,
+        planes:            this.planes,
         peso:              this.peso,
         altura:            this.altura,
         memoriaEntrenador: this.memoriaEntrenador,
@@ -281,6 +284,35 @@ export const useStore = defineStore('mulemode', {
     quitarEjercicioDeRutina(rutinaId, ejercicioNombre) {
       const r = this.rutinas.find(r => r.id === rutinaId)
       if (r) { r.ejercicios = r.ejercicios.filter(e => e.nombre !== ejercicioNombre); this.save() }
+    },
+
+    // ── PLANES ────────────────────────────────────────────────────
+    crearPlan(nombre) {
+      const id = 'p_' + Date.now()
+      this.planes.push({ id, nombre })
+      this.save()
+      return id
+    },
+
+    eliminarPlan(planId) {
+      this.planes = this.planes.filter(p => p.id !== planId)
+      this.rutinas.forEach(r => { if (r.planId === planId) r.planId = null })
+      this.save()
+    },
+
+    renamePlan(planId, nombre) {
+      const p = this.planes.find(p => p.id === planId)
+      if (p) { p.nombre = nombre; this.save() }
+    },
+
+    moverRutinaAPlan(rutinaId, planId) {
+      const r = this.rutinas.find(r => r.id === rutinaId)
+      if (r) { r.planId = planId; this.save() }
+    },
+
+    quitarRutinaDePlan(rutinaId) {
+      const r = this.rutinas.find(r => r.id === rutinaId)
+      if (r) { r.planId = null; this.save() }
     },
 
     crearRutinaConEjercicio(ejercicio) {
