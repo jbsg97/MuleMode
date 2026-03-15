@@ -112,7 +112,8 @@
               </div>
               <div class="chat-input-row">
                 <textarea class="chat-input" rows="2"
-                  v-model="chats[ei].input"
+                  :value="chats[ei].input"
+                  @input="chats[ei].input = $event.target.value"
                   placeholder="Ej: me duele la espalda, qué agarre uso, cómo activo más el glúteo..."
                   @keydown.enter.prevent="sendMessage(ei, ex)"></textarea>
                 <button class="chat-send-btn"
