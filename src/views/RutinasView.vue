@@ -361,47 +361,56 @@ function buildAnalysisPrompt(planId) {
     return `${r.nombre} [id:${r.id}]:\n${ejerciciosTxt}`
   }).join('\n\n')
 
-  // Muscles with explicit data (may be incomplete if background generation hasn't run yet)
+  const diasSemana   = store.diasSemana || 4
+  const numRutinas   = rutinas.length
+  const totalEjs     = rutinas.reduce((a, r) => a + r.ejercicios.length, 0)
+
+  // Major muscle groups — plan is "complete" when most are covered
+  const MAJOR_MUSCLES = ['chest', 'upper-back', 'back-deltoids', 'front-deltoids', 'gluteal', 'quadriceps', 'hamstring', 'abs']
   const coveredByData = new Set(
     rutinas.flatMap(r => r.ejercicios.flatMap(e =>
       (e.musculos || []).map(m => typeof m === 'string' ? m : m.muscle)
     ))
   )
-  const uncoveredByData = VALID_MUSCLES
-    .filter(m => !coveredByData.has(m))
-    .map(m => MUSCLE_LABELS[m] || m)
+  const majorCovered = MAJOR_MUSCLES.filter(m => coveredByData.has(m)).length
+  // Plan is "mature" if it has enough routines and exercises, even if muscle data is incomplete
+  const planMaduro   = numRutinas >= Math.max(3, diasSemana - 1) && totalEjs >= 16
+  const planCompleto = planMaduro || majorCovered >= 6
 
   // Changes applied in previous analyses (B: context for re-analysis)
-  const historial = (planAnalysis[planId]?._historial || [])
+  const historial    = planAnalysis[planId]?._historial || []
   const historialTxt = historial.length
-    ? `\nCAMBIOS YA APLICADOS (no revertir):\n${historial.map(h => `- ${h}`).join('\n')}`
+    ? `\nCAMBIOS YA APLICADOS POR EL ATLETA (no revertir ni contradecir):\n${historial.map(h => `- ${h}`).join('\n')}`
     : ''
 
-  return `Eres un coach de fuerza. Analiza este plan y sugiere mejoras concretas.
+  const modoAnalisis = planCompleto
+    ? `El plan ya tiene ${numRutinas} rutinas y cubre los principales grupos musculares. Enfócate en CALIDAD: balance push/pull, volumen por grupo, ejercicios redundantes o poco eficientes. NO sugieras más rutinas. Sé conservador — si el plan está bien, dilo.`
+    : `El plan está incompleto. Identifica grupos musculares principales ausentes y sugiere cómo completarlo.`
+
+  return `Eres un coach de fuerza. Analiza este plan de entrenamiento.
 
 PLAN: ${plan?.nombre}
 PERFIL: ${perfil}
+DÍAS DE ENTRENAMIENTO POR SEMANA: ${diasSemana} — el plan ya tiene ${numRutinas} rutina(s)
 
-RUTINAS DEL PLAN (el nombre de cada rutina indica su enfoque aunque los datos de músculos estén incompletos):
+RUTINAS (el nombre indica el enfoque aunque los datos de músculos no estén completos):
 ${rutinasTxt}
 ${historialTxt}
 
-MÚSCULOS SIN DATOS EXPLÍCITOS: ${uncoveredByData.length ? uncoveredByData.join(', ') : 'ninguno'}
-IMPORTANTE: si el nombre o los ejercicios de una rutina ya indican que trabajan esos músculos (ej: "Tren Inferior" cubre piernas y glúteos aunque falten datos), NO los consideres ausentes.
-
-Identifica: desequilibrios push/pull, redundancias en misma rutina, ejercicios poco eficientes, y grupos musculares REALMENTE ausentes del plan.
+MODO DE ANÁLISIS: ${modoAnalisis}
 
 Responde SOLO con este JSON (sin markdown, sin texto extra):
-{"resumen":"string (2-3 líneas, casual, directo)","sugerencias":[...]}
+{"resumen":"string (2-3 líneas, casual, directo — si el plan está bien dilo claramente)","sugerencias":[...]}
 
 Cada sugerencia es UNO de estos formatos:
-- Modificar ejercicio existente: {"rutina_id":"id exacto","tipo":"agregar|quitar|reemplazar","ejercicio_nombre":"nombre exacto (solo quitar/reemplazar)","ejercicio_nuevo":{"nombre":"string","series":3,"reps":"string","equipo":"kb|sb|bb|db|bw|band|trx|","tipoMedida":"reps|time|dist","descansoRecomendado":90},"razon":"1 línea"}
-- Nueva rutina para gaps: {"tipo":"nueva_rutina","nombre_rutina":"string","musculos_objetivo":["muscle_id1","muscle_id2"],"razon":"1 línea"}
+- Modificar ejercicio: {"rutina_id":"id exacto","tipo":"agregar|quitar|reemplazar","ejercicio_nombre":"nombre exacto (solo quitar/reemplazar)","ejercicio_nuevo":{"nombre":"string","series":3,"reps":"string","equipo":"kb|sb|bb|db|bw|band|trx|","tipoMedida":"reps|time|dist","descansoRecomendado":90},"razon":"1 línea"}
+- Nueva rutina (solo si falta región corporal completa): {"tipo":"nueva_rutina","nombre_rutina":"string","musculos_objetivo":["muscle_id"],"razon":"1 línea"}
 
-Reglas:
-- Máximo 4 sugerencias, solo las más impactantes
-- "nueva_rutina" SOLO si falta una región corporal completa sin ninguna rutina que la cubra (ej: plan fullbody sin nada de core, plan solo de piernas sin upper body). NO la uses para músculos accesorios (antebrazos, sóleos, abductores aislados) ni para grupos ya cubiertos por nombre de rutina existente
-- Muscle IDs válidos para musculos_objetivo: ${VALID_MUSCLES.join(', ')}
+Reglas estrictas:
+- Máximo 3 sugerencias, solo las más impactantes
+- Si el plan está completo y equilibrado, devuelve "sugerencias": [] y explícalo en el resumen
+- "nueva_rutina" PROHIBIDO si el plan ya tiene ${diasSemana} o más rutinas, o si hay rutinas que ya cubren esa región por nombre
+- Muscle IDs válidos: ${VALID_MUSCLES.join(', ')}
 - Usa el equipo preferido del atleta
 - Solo el JSON, nada más`
 }
@@ -442,8 +451,16 @@ async function analizarPlan(planId) {
       s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
     const json = JSON.parse(sanitized)
 
+    const diasSemana = store.diasSemana || 4
+    const numRutinas = rutinasDePlan(planId).length
+    let sugerencias  = (json.sugerencias || []).map(s => ({ ...s, _aplicado: false, _applying: false }))
+    // Point 2: hard client-side block — never add routines beyond days/week limit
+    if (numRutinas >= diasSemana) {
+      sugerencias = sugerencias.filter(s => s.tipo !== 'nueva_rutina')
+    }
+
     planAnalysis[planId].resumen     = json.resumen || ''
-    planAnalysis[planId].sugerencias = (json.sugerencias || []).map(s => ({ ...s, _aplicado: false, _applying: false }))
+    planAnalysis[planId].sugerencias = sugerencias
     planAnalysis[planId]._historial  = prevHistorial  // B: preserve history across analyses
   } catch (err) {
     console.error('analizarPlan error:', err)

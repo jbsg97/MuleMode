@@ -40,6 +40,26 @@
               v-model.number="alturaInput">
           </div>
         </div>
+        <div style="margin-top:12px">
+          <label class="form-label">Días de entrenamiento por semana</label>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px">
+            <button v-for="d in [2,3,4,5,6]" :key="d" type="button"
+              @click="diasSemanaInput = d"
+              :style="{
+                padding:'10px 0',
+                borderRadius:'var(--radius-sm)',
+                border: diasSemanaInput === d ? '2px solid var(--accent)' : '1px solid var(--border)',
+                background: diasSemanaInput === d ? 'rgba(232,240,58,0.08)' : 'transparent',
+                color: diasSemanaInput === d ? 'var(--accent)' : 'var(--text2)',
+                fontSize:'14px', fontWeight:'700', cursor:'pointer'
+              }">
+              {{ d }}
+            </button>
+          </div>
+          <div style="font-size:11px;color:var(--text3);margin-top:6px">
+            Define el máximo de rutinas por plan y cómo la IA evalúa tu programa
+          </div>
+        </div>
       </div>
 
       <!-- Equipo preferido -->
@@ -148,18 +168,20 @@ defineProps({ visible: Boolean })
 const emit = defineEmits(['close'])
 
 const store = useStore()
-const keyInput    = ref('')
-const generoInput = ref('')
-const equipoInput = ref([])
-const pesoInput   = ref('')
-const alturaInput = ref('')
-const nuevoEquipo = ref('')
+const keyInput        = ref('')
+const generoInput     = ref('')
+const equipoInput     = ref([])
+const pesoInput       = ref('')
+const alturaInput     = ref('')
+const diasSemanaInput = ref(4)
+const nuevoEquipo     = ref('')
 
-watch(() => store.geminiKey,       (val) => { keyInput.value    = val },            { immediate: true })
-watch(() => store.genero,          (val) => { generoInput.value = val },            { immediate: true })
-watch(() => store.equipoPreferido, (val) => { equipoInput.value = [...(val||[])] }, { immediate: true })
-watch(() => store.peso,            (val) => { pesoInput.value   = val },            { immediate: true })
-watch(() => store.altura,          (val) => { alturaInput.value = val },            { immediate: true })
+watch(() => store.geminiKey,       (val) => { keyInput.value        = val },            { immediate: true })
+watch(() => store.genero,          (val) => { generoInput.value     = val },            { immediate: true })
+watch(() => store.equipoPreferido, (val) => { equipoInput.value     = [...(val||[])] }, { immediate: true })
+watch(() => store.peso,            (val) => { pesoInput.value       = val },            { immediate: true })
+watch(() => store.altura,          (val) => { alturaInput.value     = val },            { immediate: true })
+watch(() => store.diasSemana,      (val) => { diasSemanaInput.value = val || 4 },       { immediate: true })
 
 function toggleEquipo(val) {
   const idx = equipoInput.value.indexOf(val)
@@ -186,8 +208,9 @@ function guardar() {
   store.geminiKey       = keyInput.value.trim()
   store.genero          = generoInput.value
   store.equipoPreferido = [...equipoInput.value]
-  store.peso            = pesoInput.value   || ''
-  store.altura          = alturaInput.value || ''
+  store.peso            = pesoInput.value       || ''
+  store.altura          = alturaInput.value     || ''
+  store.diasSemana      = diasSemanaInput.value || 4
   store.save()
   store.showToast('Ajustes guardados ✓')
   emit('close')

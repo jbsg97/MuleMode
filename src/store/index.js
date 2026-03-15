@@ -88,6 +88,7 @@ export const useStore = defineStore('mulemode', {
     planes: [],         // [{ id: 'p_...', nombre: '...' }]
     peso: '',
     altura: '',
+    diasSemana: 4,
     memoriaEntrenador: '',
     workout: null,
     pendingRegistro: null,
@@ -206,6 +207,7 @@ export const useStore = defineStore('mulemode', {
           this.planes            = d.planes            || []
           this.peso              = d.peso              || ''
           this.altura            = d.altura            || ''
+          this.diasSemana        = d.diasSemana        || 4
           this.memoriaEntrenador = d.memoriaEntrenador || ''
           if (d.workout) {
             this.workout = d.workout
@@ -240,6 +242,7 @@ export const useStore = defineStore('mulemode', {
         planes:            this.planes,
         peso:              this.peso,
         altura:            this.altura,
+        diasSemana:        this.diasSemana,
         memoriaEntrenador: this.memoriaEntrenador,
         workout:           this.workout || null,
       }))
