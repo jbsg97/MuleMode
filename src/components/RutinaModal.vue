@@ -189,7 +189,8 @@ async function generarConIA(ex) {
   const generoEs  = store.genero === 'hombre' ? 'hombre' : store.genero === 'mujer' ? 'mujer' : null
   const generoTip = generoEs ? ` El usuario es ${generoEs}, adapta terminología, enfasis muscular y cualquier variación relevante por género.` : ''
 
-  const prompt = `You are an experienced strength coach. For the exercise "${ex.nombre}"${equipoStr} performed by a ${generoCtx}, respond ONLY with valid JSON (no markdown, no extra text):
+  const memoria = store.memoriaEntrenador
+  const prompt = `You are an experienced strength coach who knows this athlete well.${memoria ? ` What you know about them:\n${memoria}\n` : ''} For the exercise "${ex.nombre}"${equipoStr} performed by a ${generoCtx}, respond ONLY with valid JSON (no markdown, no extra text):
 {
   "musculos": {"primario":[],"secundario":[],"terciario":[]},
   "respiracion": "string",

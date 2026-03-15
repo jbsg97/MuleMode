@@ -49,6 +49,27 @@
         </div>
       </div>
 
+      <!-- Memoria del entrenador -->
+      <div style="margin-bottom:24px;border-top:1px solid var(--border);padding-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+          <div style="font-size:13px;font-weight:700;color:var(--text1)">🧠 Lo que recuerda el entrenador</div>
+          <button v-if="store.memoriaEntrenador" type="button"
+            @click="store.memoriaEntrenador = ''; store.save()"
+            style="background:none;border:none;color:var(--red);font-size:12px;cursor:pointer;padding:0">
+            Borrar todo
+          </button>
+        </div>
+        <div v-if="store.memoriaEntrenador"
+          style="font-size:12px;color:var(--text2);line-height:1.7;white-space:pre-line;
+                 background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);
+                 padding:10px 12px;max-height:180px;overflow-y:auto">
+          {{ store.memoriaEntrenador }}
+        </div>
+        <div v-else style="font-size:12px;color:var(--text3)">
+          Aún no hay memoria. Se construye automáticamente al usar el chat del entrenador.
+        </div>
+      </div>
+
       <!-- Cuenta -->
       <div style="border-top:1px solid var(--border);padding-top:16px">
         <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:8px">Cuenta</div>

@@ -160,16 +160,53 @@ function toggleChat(ei) {
 }
 
 function buildContext(ex) {
-  const equipo = ex.equipo ? `con ${EQUIPO_MAP[ex.equipo]?.label || ex.equipo}` : ''
-  const genero = store.genero === 'hombre' ? 'hombre' : store.genero === 'mujer' ? 'mujer' : null
-  const notas  = ex.notas && typeof ex.notas === 'object'
+  const equipo  = ex.equipo ? `con ${EQUIPO_MAP[ex.equipo]?.label || ex.equipo}` : ''
+  const genero  = store.genero === 'hombre' ? 'hombre' : store.genero === 'mujer' ? 'mujer' : null
+  const notas   = ex.notas && typeof ex.notas === 'object'
     ? [ex.notas.respiracion, ex.notas.forma, ex.notas.tips].filter(Boolean).join(' ')
     : (ex.notas || '')
-  return `Eres el mejor amigo de este${genero === 'mujer' ? 'a' : ''} atleta${genero ? ` (${genero})` : ''} — alguien que lleva años entrenando y sabe mucho, pero que habla como un cuate, no como un entrenador de manual. Se conocen bien. Ahora mismo está entrenando "${ex.nombre}" ${equipo} — ${ex.series?.length} series de ${ex.reps}.${notas ? ` Ya sabe esto del ejercicio: ${notas}` : ''}
+  const memoria = store.memoriaEntrenador
 
-Cómo hablas: casual, directo, sin rodeos. Nada de "recuerda", "asegúrate", ni frases de libro. Si algo duele o no se siente bien, lo dices con confianza y sin drama. A veces puedes usar expresiones coloquiales naturales. Eres honesto — si algo puede ser lesión, lo dices claro pero sin asustar.
+  return `Eres el mejor amigo de este${genero === 'mujer' ? 'a' : ''} atleta${genero ? ` (${genero})` : ''} — alguien que lleva años entrenando y sabe mucho, pero que habla como un cuate, no como un entrenador de manual. Se conocen muy bien.${memoria ? `\n\nLo que ya sabes de esta persona:\n${memoria}` : ''}\n\nAhora está entrenando "${ex.nombre}" ${equipo} — ${ex.series?.length} series de ${ex.reps}.${notas ? ` Notas del ejercicio: ${notas}` : ''}
 
-Formato: párrafos cortos con salto de línea entre ideas. Sin markdown, sin asteriscos, sin guiones. Máximo 4 párrafos, respuestas cortas y al punto.`
+Cómo hablas: casual, directo, sin rodeos. Nada de "recuerda", "asegúrate", ni frases de libro. Si algo duele o puede ser lesión, lo dices claro sin asustar. Usa lo que ya sabes de esta persona para personalizar tus respuestas.
+
+Formato: párrafos cortos con salto de línea entre ideas. Sin markdown, sin asteriscos, sin guiones. Máximo 4 párrafos.`
+}
+
+async function extraerMemoria(userMsg, coachReply) {
+  const key = store.geminiKey
+  if (!key) return
+  const memoriaActual = store.memoriaEntrenador
+  const prompt = `Eres un asistente que extrae hechos relevantes sobre un atleta de una conversación con su entrenador.
+
+Memoria actual del atleta:
+${memoriaActual || '(ninguna aún)'}
+
+Nueva conversación:
+Atleta: ${userMsg}
+Entrenador: ${coachReply}
+
+Extrae ÚNICAMENTE hechos nuevos y relevantes que no estén ya en la memoria actual: lesiones, molestias, puntos débiles, metas, equipo preferido, nivel, patrones de entrenamiento, preferencias. Si hay nueva información, devuelve solo las líneas nuevas como "- [hecho] ([fecha actual: ${new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}])". Si no hay nada nuevo, devuelve exactamente: NADA`
+
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0,
+        max_tokens: 200,
+      }),
+    })
+    const data = await res.json()
+    const nuevos = (data?.choices?.[0]?.message?.content || '').trim()
+    if (nuevos && nuevos !== 'NADA') {
+      store.memoriaEntrenador = [memoriaActual, nuevos].filter(Boolean).join('\n')
+      store.save()
+    }
+  } catch { /* silencioso — es background */ }
 }
 
 async function sendMessage(ei, ex) {
@@ -198,6 +235,7 @@ async function sendMessage(ei, ex) {
     const data = await res.json()
     const reply = data?.choices?.[0]?.message?.content || 'No pude responder, intenta de nuevo.'
     chats[ei].messages.push({ role: 'assistant', content: reply })
+    extraerMemoria(text, reply) // background, sin await
   } catch {
     chats[ei].messages.push({ role: 'assistant', content: 'Error de conexión. Revisa tu key de Groq.' })
   }
