@@ -98,7 +98,7 @@
 
           <textarea class="notes-area" placeholder="Notas del ejercicio..."
             :value="ex.notaSession || ''"
-            @change="store.updateExNota(ei, $event.target.value)"></textarea>
+            @input="store.updateExNota(ei, $event.target.value)"></textarea>
         </div>
       </div>
     </div>
