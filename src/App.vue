@@ -9,13 +9,13 @@
 
   <!-- Con sesión → app completa -->
   <div v-else>
-    <RutinasView v-if="currentPage === 'rutinas'" />
+    <RutinasView v-if="currentPage === 'rutinas'" @settings="settingsVisible = true" />
     <HistorialView v-else-if="currentPage === 'historial'" />
     <ProgresoView v-else-if="currentPage === 'progreso'" />
     <WorkoutView v-else-if="currentPage === 'workout'" @finish="onWorkoutFinish" />
 
     <BottomNav v-if="currentPage !== 'workout'" :current="currentPage"
-      @navigate="currentPage = $event" @settings="settingsVisible = true" />
+      @navigate="currentPage = $event" />
 
     <RestTimerOverlay />
     <SummaryOverlay />

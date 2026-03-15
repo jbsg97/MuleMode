@@ -7,6 +7,12 @@
         <div class="header-slogan">Carga. Avanza. Repite.</div>
         <div class="header-sub">{{ store.fechaHoy }}</div>
       </div>
+      <button @click="$emit('settings')" class="settings-btn" title="Ajustes">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="8" r="4"/>
+          <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+        </svg>
+      </button>
     </div>
 
     <!-- Stats -->
@@ -101,6 +107,8 @@
 <script setup>
 import { reactive } from 'vue'
 import { useStore, EQUIPO_MAP, MUSCLE_LABELS } from '../store/index.js'
+
+defineEmits(['settings'])
 
 const store = useStore()
 const equipoMap = EQUIPO_MAP

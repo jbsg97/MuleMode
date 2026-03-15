@@ -9,13 +9,10 @@
     <button class="nav-btn" :class="{ active: current === 'progreso' }" @click="$emit('navigate', 'progreso')">
       <div class="nav-icon">📈</div><span>Progreso</span>
     </button>
-    <button class="nav-btn" @click="$emit('settings')">
-      <div class="nav-icon">⚙️</div><span>Ajustes</span>
-    </button>
   </nav>
 </template>
 
 <script setup>
 defineProps({ current: String })
-defineEmits(['navigate', 'settings'])
+defineEmits(['navigate'])
 </script>
