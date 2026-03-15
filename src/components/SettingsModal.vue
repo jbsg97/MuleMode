@@ -30,6 +30,28 @@
         </div>
       </div>
 
+      <!-- Equipo preferido -->
+      <div style="margin-bottom:24px;border-top:1px solid var(--border);padding-top:16px">
+        <label class="form-label">Equipo preferido</label>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+          <button v-for="[val, label] in EQUIPO_OPTIONS" :key="val" type="button"
+            @click="toggleEquipo(val)"
+            :style="{
+              padding:'8px 14px',
+              borderRadius:'var(--radius-sm)',
+              border: equipoInput.includes(val) ? '2px solid var(--accent)' : '1px solid var(--border)',
+              background: equipoInput.includes(val) ? 'rgba(232,240,58,0.08)' : 'transparent',
+              color: equipoInput.includes(val) ? 'var(--accent)' : 'var(--text2)',
+              fontSize:'13px', fontWeight:'600', cursor:'pointer'
+            }">
+            {{ label }}
+          </button>
+        </div>
+        <div style="font-size:11px;color:var(--text3)">
+          La IA priorizará estos equipos al sugerir ejercicios. Puedes elegir varios.
+        </div>
+      </div>
+
       <!-- Groq API Key -->
       <div style="margin-bottom:24px;border-top:1px solid var(--border);padding-top:16px">
         <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:4px">🤖 Groq API Key</div>
@@ -88,9 +110,10 @@
 import { ref, watch } from 'vue'
 import { signOut } from 'firebase/auth'
 import { auth } from '../firebase.js'
-import { useStore } from '../store/index.js'
+import { useStore, EQUIPO_MAP } from '../store/index.js'
 
 const GENERO_OPTIONS = [['hombre', '♂ Hombre'], ['mujer', '♀ Mujer'], ['', 'No especificar']]
+const EQUIPO_OPTIONS = Object.entries(EQUIPO_MAP).map(([val, { label }]) => [val, label])
 
 defineProps({ visible: Boolean })
 const emit = defineEmits(['close'])
@@ -98,13 +121,22 @@ const emit = defineEmits(['close'])
 const store = useStore()
 const keyInput    = ref('')
 const generoInput = ref('')
+const equipoInput = ref([])
 
-watch(() => store.geminiKey, (val) => { keyInput.value    = val }, { immediate: true })
-watch(() => store.genero,    (val) => { generoInput.value = val }, { immediate: true })
+watch(() => store.geminiKey,       (val) => { keyInput.value    = val },          { immediate: true })
+watch(() => store.genero,          (val) => { generoInput.value = val },          { immediate: true })
+watch(() => store.equipoPreferido, (val) => { equipoInput.value = [...(val||[])] }, { immediate: true })
+
+function toggleEquipo(val) {
+  const idx = equipoInput.value.indexOf(val)
+  if (idx === -1) equipoInput.value.push(val)
+  else equipoInput.value.splice(idx, 1)
+}
 
 function guardar() {
-  store.geminiKey = keyInput.value.trim()
-  store.genero    = generoInput.value
+  store.geminiKey       = keyInput.value.trim()
+  store.genero          = generoInput.value
+  store.equipoPreferido = [...equipoInput.value]
   store.save()
   store.showToast('Ajustes guardados ✓')
   emit('close')

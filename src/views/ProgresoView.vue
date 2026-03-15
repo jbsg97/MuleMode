@@ -449,13 +449,15 @@ function abrirPicker(nombre) {
   pickerVisible.value = true
 }
 
-async function generarDatosEjercicio(nombre) {
+async function generarDatosEjercicio(nombre, equipo = '') {
   const key = store.geminiKey
   if (!key) return null
   const generoCtx = store.genero === 'hombre' ? 'male athlete' : store.genero === 'mujer' ? 'female athlete' : 'athlete'
   const generoEs  = store.genero === 'hombre' ? 'hombre' : store.genero === 'mujer' ? 'mujer' : null
   const memoria   = store.memoriaEntrenador
-  const prompt = `You are an experienced strength coach who knows this athlete well.${memoria ? ` What you know about them:\n${memoria}\n` : ''} For the exercise "${nombre}" performed by a ${generoCtx}, respond ONLY with valid JSON (no markdown, no extra text):
+  const EQUIPO_LABELS_EN = { kb: 'kettlebell', sb: 'sandbag', bb: 'barbell', db: 'dumbbell', bw: 'bodyweight', band: 'resistance band', trx: 'TRX' }
+  const equipoStr = EQUIPO_LABELS_EN[equipo] ? ` (with ${EQUIPO_LABELS_EN[equipo]})` : ''
+  const prompt = `You are an experienced strength coach who knows this athlete well.${memoria ? ` What you know about them:\n${memoria}\n` : ''} For the exercise "${nombre}"${equipoStr} performed by a ${generoCtx}, respond ONLY with valid JSON (no markdown, no extra text):
 {"musculos":{"primario":[],"secundario":[],"terciario":[]},"respiracion":"string","forma":"string","tips":"string"}
 
 Write all text fields in Spanish, casual tone. No "recuerda", no "asegúrate". Direct, specific.
@@ -492,19 +494,25 @@ async function confirmarAgregarEjercicio(rutinaId) {
   pickerGenerating.value = true
   const nombre = pickerExNombre.value
 
+  const equipoPref = store.equipoPreferido || []
+  const autoEquipo = nombre.toLowerCase().startsWith('kb') ? 'kb'
+    : nombre.toLowerCase().startsWith('sb') ? 'sb'
+    : equipoPref.length === 1 ? equipoPref[0]
+    : ''
+
   const ejercicio = {
     id: 'e' + Date.now(),
     nombre,
     series: 3,
     reps: '10',
-    equipo: nombre.toLowerCase().startsWith('kb') ? 'kb' : nombre.toLowerCase().startsWith('sb') ? 'sb' : '',
+    equipo: autoEquipo,
     tipoMedida: 'reps',
     notas: { respiracion: '', forma: '', tips: '' },
     descansoRecomendado: 90,
     musculos: [],
   }
 
-  const generado = await generarDatosEjercicio(nombre)
+  const generado = await generarDatosEjercicio(nombre, autoEquipo)
   if (generado) {
     ejercicio.musculos = generado.musculos
     ejercicio.notas    = generado.notas
@@ -558,8 +566,15 @@ async function analizarSemana() {
     .join('\n')
   const genero = store.genero === 'hombre' ? 'hombre' : store.genero === 'mujer' ? 'mujer' : null
   const memoria = store.memoriaEntrenador
+  const equipoPref = store.equipoPreferido || []
+  const EQUIPO_NOMBRES = { kb: 'kettlebell', sb: 'sandbag', bb: 'barra', db: 'mancuerna', bw: 'peso corporal', band: 'bandas de resistencia', trx: 'TRX' }
+  const equipoStr = equipoPref.length
+    ? `El atleta prefiere entrenar con: ${equipoPref.map(e => EQUIPO_NOMBRES[e] || e).join(', ')}. Prioriza estos equipos en las sugerencias de ejercicios.`
+    : 'El atleta usa kettlebell y sandbag.'
 
-  const prompt = `Eres un entrenador experto analizando la semana de entrenamiento de un atleta${genero ? ` (${genero})` : ''} que hace kettlebell y sandbag.${memoria ? `\n\nLo que sabes del atleta:\n${memoria}` : ''}
+  const prompt = `Eres un entrenador experto analizando la semana de entrenamiento de un atleta${genero ? ` (${genero})` : ''}.${memoria ? `\n\nLo que sabes del atleta:\n${memoria}` : ''}
+
+${equipoStr}
 
 Ejercicios realizados esta semana:
 ${ejercicios || '(ninguno)'}
@@ -577,7 +592,7 @@ Analiza y responde SOLO con este JSON (sin markdown, sin texto extra):
 }
 
 Reglas:
-- gaps: grupos musculares importantes NO trabajados esta semana (máx 4). Sugiere 2-3 ejercicios con kettlebell o sandbag.
+- gaps: grupos musculares importantes NO trabajados esta semana (máx 4). Sugiere 2-3 ejercicios usando el equipo preferido del atleta.
 - redundancias: pares/grupos de ejercicios que trabajan los mismos músculos primarios (máx 3).
 - Si no hay gaps o redundancias, devuelve arrays vacíos.
 - Responde en español, tono casual y directo.
