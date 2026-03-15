@@ -110,7 +110,7 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue'
+import { reactive, watch } from 'vue'
 import { useStore, EQUIPO_MAP } from '../store/index.js'
 import MuscleMap from '../components/MuscleMap.vue'
 import ExerciseChat from '../components/ExerciseChat.vue'
@@ -122,7 +122,17 @@ const equipoMap = EQUIPO_MAP
 const collapsed = reactive({})
 const showMap   = reactive({})
 
+// Inicializar: primer ejercicio abierto, los demás cerrados
+watch(() => store.workout, (w) => {
+  if (!w) return
+  w.ejercicios.forEach((_, i) => { collapsed[i] = i !== 0 })
+}, { immediate: true })
+
 function toggleExBlock(ei) {
-  collapsed[ei] = !collapsed[ei]
+  const opening = collapsed[ei]
+  // Colapsar todos
+  if (store.workout) store.workout.ejercicios.forEach((_, i) => { collapsed[i] = true })
+  // Abrir el seleccionado (o dejarlo cerrado si ya estaba abierto)
+  if (opening) collapsed[ei] = false
 }
 </script>
