@@ -440,6 +440,7 @@ function guardarRutina(ri) {
   store.guardarRutina(r.nombre, autoDesc || r.desc, ejercicios)
   store.rutinaModalVisible = false
   r._guardada = true
+  if (store.geminiKey) generarNotasBackground(r.nombre, r.ejercicios)
 }
 
 function guardarTodas() {
@@ -447,6 +448,59 @@ function guardarTodas() {
     if (!rutinasGeneradas.value[i]._guardada) guardarRutina(i)
   })
   cerrar()
+}
+
+// ── Notas en background ────────────────────────────────────────
+async function generarNotasBackground(rutinaName, ejercicios) {
+  const key = store.geminiKey
+  if (!key || !ejercicios.length) return
+
+  const EQUIPO_EN = { kb:'kettlebell', sb:'sandbag', bb:'barbell', db:'dumbbell', bw:'bodyweight', band:'resistance band', trx:'TRX' }
+  const genero = store.genero || null
+
+  const lista = ejercicios.map(e =>
+    `- ${e.nombre}${EQUIPO_EN[e.equipo] ? ` (${EQUIPO_EN[e.equipo]})` : ''}`
+  ).join('\n')
+
+  const prompt = `You are a strength coach. For each exercise, generate training cues in Spanish, casual friendly tone — like advice from a knowledgeable friend. No "recuerda", no "asegúrate", direct and specific.${genero ? ` User is ${genero}.` : ''}
+
+Exercises:
+${lista}
+
+Respond ONLY with a JSON array (no markdown, no extra text):
+[{"nombre":"exact name as given","respiracion":"one sentence when to inhale/exhale","forma":"2 sentences key technique points","tips":"1 sentence what to do if they don't feel the target muscle"}]`
+
+  try {
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0,
+        max_tokens: 1500,
+      }),
+    })
+    const data = await res.json()
+    let raw = (data?.choices?.[0]?.message?.content || '').replace(/```json?|```/g, '').trim()
+    const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
+      s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
+    const notas = JSON.parse(sanitized)
+
+    // Find the saved routine and patch exercises
+    const rutina = store.rutinas.slice().reverse().find(r => r.nombre === rutinaName)
+    if (!rutina) return
+
+    notas.forEach(n => {
+      const ex = rutina.ejercicios.find(e => e.nombre === n.nombre)
+      if (ex) ex.notas = { respiracion: n.respiracion || '', forma: n.forma || '', tips: n.tips || '' }
+    })
+
+    store.save()
+    store.showToast(`✓ Notas generadas para "${rutinaName}"`)
+  } catch (err) {
+    console.error('generarNotas error:', err)
+  }
 }
 </script>
 
