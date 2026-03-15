@@ -198,10 +198,10 @@ async function generarConIA(ex) {
   "busqueda_video": "string"
 }
 
-Rules for all text fields — write in Spanish using "tú", direct coach tone, no emojis, no bullet symbols, no generic filler words like "recuerda" or "asegúrate":
-- "respiracion": one sentence, exactly when to inhale and exhale tied to the movement of THIS exercise.
-- "forma": 2 sentences, the most critical technique details specific to THIS exercise to perform it correctly and avoid injury.
-- "tips": 1-2 sentences, what to do if they are not feeling the target muscle working — specific cue for THIS exercise.
+Write all text fields in Spanish, casual and friendly tone — like advice from a knowledgeable friend, not a formal coach. No "recuerda", no "asegúrate", no manual-like phrasing. Direct, natural, specific to THIS exercise:
+- "respiracion": one sentence, exactly when to inhale and exhale during the movement.
+- "forma": 2 sentences, the most important technique points to do it right and avoid injury.
+- "tips": 1-2 sentences, what to do if they don't feel the target muscle — practical and specific.
 ${generoTip}
 For "busqueda_video": search query in Spanish like: Como hacer peso muerto correctamente para hombre. Plain text, no special characters.
 For musculos use ONLY: ${VALID_MUSCLES.join(', ')}. Primary >60% MVC, secondary 30-60%, tertiary <30%.`
