@@ -112,12 +112,11 @@
               </div>
               <div class="chat-input-row">
                 <textarea class="chat-input" rows="2"
-                  :value="chats[ei].input"
-                  @input="chats[ei].input = $event.target.value"
+                  :ref="el => inputRefs[ei] = el"
                   placeholder="Ej: me duele la espalda, qué agarre uso, cómo activo más el glúteo..."
                   @keydown.enter.prevent="sendMessage(ei, ex)"></textarea>
                 <button class="chat-send-btn"
-                  :disabled="!chats[ei].input.trim() || chats[ei].loading"
+                  :disabled="chats[ei]?.loading"
                   @click="sendMessage(ei, ex)">↑</button>
               </div>
             </div>
@@ -147,15 +146,16 @@ const store     = useStore()
 const equipoMap = EQUIPO_MAP
 const collapsed = reactive({})
 const showMap   = reactive({})
-const chats     = reactive({})
-const chatRefs  = reactive({})
+const chats      = reactive({})
+const chatRefs   = reactive({})
+const inputRefs  = reactive({})
 
 function toggleExBlock(ei) {
   collapsed[ei] = !collapsed[ei]
 }
 
 function toggleChat(ei) {
-  if (!chats[ei]) chats[ei] = { open: false, messages: [], input: '', loading: false }
+  if (!chats[ei]) chats[ei] = { open: false, messages: [], loading: false }
   chats[ei].open = !chats[ei].open
 }
 
@@ -210,12 +210,13 @@ Extrae ÚNICAMENTE hechos nuevos y relevantes que no estén ya en la memoria act
 }
 
 async function sendMessage(ei, ex) {
-  if (!chats[ei]) chats[ei] = { open: true, messages: [], input: '', loading: false }
-  const text = chats[ei].input.trim()
+  if (!chats[ei]) chats[ei] = { open: true, messages: [], loading: false }
+  const inputEl = inputRefs[ei]
+  const text = inputEl?.value?.trim()
   if (!text || chats[ei].loading) return
 
   chats[ei].messages.push({ role: 'user', content: text })
-  chats[ei].input   = ''
+  if (inputEl) inputEl.value = ''
   chats[ei].loading = true
   await scrollChat(ei)
 
