@@ -94,33 +94,7 @@
             <div v-else class="ex-cues">{{ ex.notas }}</div>
           </template>
 
-          <!-- Chat entrenador -->
-          <div v-if="store.geminiKey" class="coach-chat">
-            <button class="coach-chat-toggle" @click="toggleChat(ei)">
-              {{ chats[ei]?.open ? '▲ Cerrar entrenador' : '🎙 Consultar al entrenador' }}
-            </button>
-            <div v-if="chats[ei]?.open">
-              <div v-if="chats[ei].messages.length" class="chat-messages" :ref="el => chatRefs[ei] = el">
-                <div v-for="(msg, mi) in chats[ei].messages" :key="mi"
-                  :class="['chat-bubble', msg.role === 'user' ? 'chat-bubble--user' : 'chat-bubble--coach']">
-                  <div v-if="msg.role === 'assistant'" class="chat-bubble-label">Entrenador</div>
-                  {{ msg.content }}
-                </div>
-                <div v-if="chats[ei].loading" class="chat-bubble chat-bubble--coach chat-bubble--loading">
-                  <span class="chat-dots"><span>.</span><span>.</span><span>.</span></span>
-                </div>
-              </div>
-              <div class="chat-input-row">
-                <textarea class="chat-input" rows="2"
-                  :ref="el => inputRefs[ei] = el"
-                  placeholder="Ej: me duele la espalda, qué agarre uso, cómo activo más el glúteo..."
-                  @keydown.enter.prevent="sendMessage(ei, ex)"></textarea>
-                <button class="chat-send-btn"
-                  :disabled="chats[ei]?.loading"
-                  @click="sendMessage(ei, ex)">↑</button>
-              </div>
-            </div>
-          </div>
+          <ExerciseChat v-if="store.geminiKey" :ex="ex" />
 
           <textarea class="notes-area" placeholder="Notas del ejercicio..."
             :value="ex.notaSession || ''"
@@ -136,9 +110,10 @@
 </template>
 
 <script setup>
-import { reactive, nextTick } from 'vue'
+import { reactive } from 'vue'
 import { useStore, EQUIPO_MAP } from '../store/index.js'
 import MuscleMap from '../components/MuscleMap.vue'
+import ExerciseChat from '../components/ExerciseChat.vue'
 
 defineEmits(['finish'])
 
@@ -146,108 +121,8 @@ const store     = useStore()
 const equipoMap = EQUIPO_MAP
 const collapsed = reactive({})
 const showMap   = reactive({})
-const chats      = reactive({})
-const chatRefs   = reactive({})
-const inputRefs  = reactive({})
 
 function toggleExBlock(ei) {
   collapsed[ei] = !collapsed[ei]
-}
-
-function toggleChat(ei) {
-  if (!chats[ei]) chats[ei] = { open: false, messages: [], loading: false }
-  chats[ei].open = !chats[ei].open
-}
-
-function buildContext(ex) {
-  const equipo  = ex.equipo ? `con ${EQUIPO_MAP[ex.equipo]?.label || ex.equipo}` : ''
-  const genero  = store.genero === 'hombre' ? 'hombre' : store.genero === 'mujer' ? 'mujer' : null
-  const notas   = ex.notas && typeof ex.notas === 'object'
-    ? [ex.notas.respiracion, ex.notas.forma, ex.notas.tips].filter(Boolean).join(' ')
-    : (ex.notas || '')
-  const memoria = store.memoriaEntrenador
-
-  return `Eres el mejor amigo de este${genero === 'mujer' ? 'a' : ''} atleta${genero ? ` (${genero})` : ''} — alguien que lleva años entrenando y sabe mucho, pero que habla como un cuate, no como un entrenador de manual. Se conocen muy bien.${memoria ? `\n\nLo que ya sabes de esta persona:\n${memoria}` : ''}\n\nAhora está entrenando "${ex.nombre}" ${equipo} — ${ex.series?.length} series de ${ex.reps}.${notas ? ` Notas del ejercicio: ${notas}` : ''}
-
-Cómo hablas: casual, directo, sin rodeos. Nada de "recuerda", "asegúrate", ni frases de libro. Si algo duele o puede ser lesión, lo dices claro sin asustar. Usa lo que ya sabes de esta persona para personalizar tus respuestas.
-
-Formato: párrafos cortos con salto de línea entre ideas. Sin markdown, sin asteriscos, sin guiones. Máximo 4 párrafos.`
-}
-
-async function extraerMemoria(userMsg, coachReply) {
-  const key = store.geminiKey
-  if (!key) return
-  const memoriaActual = store.memoriaEntrenador
-  const prompt = `Eres un asistente que extrae hechos relevantes sobre un atleta de una conversación con su entrenador.
-
-Memoria actual del atleta:
-${memoriaActual || '(ninguna aún)'}
-
-Nueva conversación:
-Atleta: ${userMsg}
-Entrenador: ${coachReply}
-
-Extrae ÚNICAMENTE hechos nuevos y relevantes que no estén ya en la memoria actual: lesiones, molestias, puntos débiles, metas, equipo preferido, nivel, patrones de entrenamiento, preferencias. Si hay nueva información, devuelve solo las líneas nuevas como "- [hecho] ([fecha actual: ${new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}])". Si no hay nada nuevo, devuelve exactamente: NADA`
-
-  try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-      body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0,
-        max_tokens: 200,
-      }),
-    })
-    const data = await res.json()
-    const nuevos = (data?.choices?.[0]?.message?.content || '').trim()
-    if (nuevos && nuevos !== 'NADA') {
-      store.memoriaEntrenador = [memoriaActual, nuevos].filter(Boolean).join('\n')
-      store.save()
-    }
-  } catch { /* silencioso — es background */ }
-}
-
-async function sendMessage(ei, ex) {
-  if (!chats[ei]) chats[ei] = { open: true, messages: [], loading: false }
-  const inputEl = inputRefs[ei]
-  const text = inputEl?.value?.trim()
-  if (!text || chats[ei].loading) return
-
-  chats[ei].messages.push({ role: 'user', content: text })
-  if (inputEl) inputEl.value = ''
-  chats[ei].loading = true
-  await scrollChat(ei)
-
-  const history = chats[ei].messages.slice(-8).map(m => ({ role: m.role, content: m.content }))
-
-  try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${store.geminiKey}` },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'system', content: buildContext(ex) }, ...history],
-        temperature: 0.7,
-        max_tokens: 300,
-      }),
-    })
-    const data = await res.json()
-    const reply = data?.choices?.[0]?.message?.content || 'No pude responder, intenta de nuevo.'
-    chats[ei].messages.push({ role: 'assistant', content: reply })
-    extraerMemoria(text, reply) // background, sin await
-  } catch {
-    chats[ei].messages.push({ role: 'assistant', content: 'Error de conexión. Revisa tu key de Groq.' })
-  }
-
-  chats[ei].loading = false
-  await scrollChat(ei)
-}
-
-async function scrollChat(ei) {
-  await nextTick()
-  const el = chatRefs[ei]
-  if (el) el.scrollTop = el.scrollHeight
 }
 </script>
