@@ -184,6 +184,13 @@ export const useStore = defineStore('mulemode', {
           this.geminiKey         = d.geminiKey         || ''
           this.genero            = d.genero            || ''
           this.memoriaEntrenador = d.memoriaEntrenador || ''
+          if (d.workout) {
+            this.workout = d.workout
+            // Recalcular tiempo transcurrido desde startTime original
+            this.wkElapsed = Math.floor((Date.now() - d.workout.startTime) / 1000)
+            if (this.wkInterval) clearInterval(this.wkInterval)
+            this.wkInterval = setInterval(() => { this.wkElapsed++ }, 1000)
+          }
         } else {
           this.rutinas  = defaultRutinas()
           this.historial = []
@@ -200,12 +207,13 @@ export const useStore = defineStore('mulemode', {
     save() {
       if (!this.uid) return
       const data = JSON.parse(JSON.stringify({
-        rutinas:    this.rutinas,
-        historial:  this.historial,
-        videos:     this.videos,
+        rutinas:           this.rutinas,
+        historial:         this.historial,
+        videos:            this.videos,
         geminiKey:         this.geminiKey,
         genero:            this.genero,
         memoriaEntrenador: this.memoriaEntrenador,
+        workout:           this.workout || null,
       }))
       setDoc(doc(db, 'users', this.uid), data).catch(e => console.error('save error', e))
     },
@@ -264,6 +272,7 @@ export const useStore = defineStore('mulemode', {
       this.wkElapsed = 0
       if (this.wkInterval) clearInterval(this.wkInterval)
       this.wkInterval = setInterval(() => { this.wkElapsed++ }, 1000)
+      this.save()
     },
 
     updateSerie(ei, si, field, val) {
@@ -283,6 +292,7 @@ export const useStore = defineStore('mulemode', {
         }
         this.iniciarDescanso(ex.descansoRecomendado || 90)
       }
+      this.save()
     },
 
     addSerie(ei) {
@@ -327,11 +337,19 @@ export const useStore = defineStore('mulemode', {
     guardarYSalir() {
       if (!this.pendingRegistro) return
       this.historial.unshift(this.pendingRegistro)
-      this.save()
       this.pendingRegistro = null
       this.workout = null
       this.summaryVisible = false
+      this.save()
       this.showToast('Entrenamiento guardado ✓')
+    },
+
+    descartarEntrenamiento() {
+      if (this.wkInterval) clearInterval(this.wkInterval)
+      this.workout = null
+      this.pendingRegistro = null
+      this.summaryVisible = false
+      this.save()
     },
 
     // ── DESCANSO ──────────────────────────────────────────────────

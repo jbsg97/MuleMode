@@ -68,6 +68,7 @@ onMounted(() => {
       store.uid = null
     }
     store.authChecked = true
+      if (store.workout) currentPage.value = 'workout'
   })
 })
 </script>

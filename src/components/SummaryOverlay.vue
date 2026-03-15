@@ -33,6 +33,9 @@
     <button class="btn btn-accent btn-full" style="max-width:320px;width:100%" @click="store.guardarYSalir()">
       Guardar entrenamiento
     </button>
+    <button class="btn btn-outline btn-full" style="max-width:320px;width:100%;margin-top:8px" @click="store.descartarEntrenamiento()">
+      Descartar
+    </button>
   </div>
 </template>
 
