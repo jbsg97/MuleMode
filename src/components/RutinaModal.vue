@@ -119,6 +119,12 @@
               placeholder="Qué hacer si no sientes el músculo objetivo"
               style="resize:none;font-size:13px;line-height:1.5"></textarea>
           </div>
+          <div>
+            <label class="form-label">📈 Progresión</label>
+            <textarea class="form-input" v-model="ex.notas.progresion" rows="2"
+              placeholder="Regla de oro: cuándo aumentar peso o reps"
+              style="resize:none;font-size:13px;line-height:1.5"></textarea>
+          </div>
         </div>
 
         <div style="margin-top:10px">
@@ -159,9 +165,9 @@ const VALID_MUSCLES = ['chest','obliques','abs','biceps','triceps','front-deltoi
 const EQUIPO_LABELS = { kb: 'kettlebell', sb: 'sandbag', bb: 'barbell', db: 'dumbbell', bw: 'bodyweight', band: 'resistance band', trx: 'TRX' }
 
 function toNotasObj(notas) {
-  if (!notas) return { respiracion: '', forma: '', tips: '' }
-  if (typeof notas === 'object') return { respiracion: notas.respiracion || '', forma: notas.forma || '', tips: notas.tips || '' }
-  return { respiracion: '', forma: notas, tips: '' } // legacy string
+  if (!notas) return { respiracion: '', forma: '', tips: '', progresion: '' }
+  if (typeof notas === 'object') return { respiracion: notas.respiracion || '', forma: notas.forma || '', tips: notas.tips || '', progresion: notas.progresion || '' }
+  return { respiracion: '', forma: notas, tips: '', progresion: '' } // legacy string
 }
 
 const store = useStore()
@@ -196,6 +202,7 @@ async function generarConIA(ex) {
   "respiracion": "string",
   "forma": "string",
   "tips": "string",
+  "progresion": "string",
   "busqueda_video": "string"
 }
 
@@ -203,6 +210,7 @@ Write all text fields in Spanish, casual and friendly tone — like advice from 
 - "respiracion": one sentence, exactly when to inhale and exhale during the movement.
 - "forma": 2 sentences, the most important technique points to do it right and avoid injury.
 - "tips": 1-2 sentences, what to do if they don't feel the target muscle — practical and specific.
+- "progresion": 1-2 sentences, the golden rule for progression on this specific exercise — when to add reps vs when to add weight, and by how much. E.g. "Cuando completes todas las reps con buena técnica, sube 2 kg. Si no cierras todas las series, mantén el peso."
 ${generoTip}
 For "busqueda_video": search query in Spanish like: Como hacer peso muerto correctamente para hombre. Plain text, no special characters.
 For musculos use ONLY: ${VALID_MUSCLES.join(', ')}. Primary >60% MVC, secondary 30-60%, tertiary <30%.`
@@ -244,8 +252,8 @@ For musculos use ONLY: ${VALID_MUSCLES.join(', ')}. Primary >60% MVC, secondary 
       ...filter(m.secundario).map(muscle => ({ muscle, nivel: 'secundario' })),
       ...filter(m.terciario).map(muscle => ({ muscle, nivel: 'terciario' })),
     ]
-    if (json.respiracion || json.forma || json.tips) {
-      ex.notas = { respiracion: json.respiracion || '', forma: json.forma || '', tips: json.tips || '' }
+    if (json.respiracion || json.forma || json.tips || json.progresion) {
+      ex.notas = { respiracion: json.respiracion || '', forma: json.forma || '', tips: json.tips || '', progresion: json.progresion || '' }
     }
     if (json.busqueda_video) ex._busquedaVideo = json.busqueda_video
     ex._iaDetected = true

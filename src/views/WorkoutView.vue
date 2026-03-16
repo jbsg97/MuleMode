@@ -90,6 +90,10 @@
                 <div class="ex-cues-label">Si no lo sientes</div>
                 {{ ex.notas.tips }}
               </div>
+              <div v-if="ex.notas.progresion" class="ex-cues ex-cues--progresion">
+                <div class="ex-cues-label">📈 Progresión</div>
+                {{ ex.notas.progresion }}
+              </div>
             </template>
             <div v-else class="ex-cues">{{ ex.notas }}</div>
           </template>

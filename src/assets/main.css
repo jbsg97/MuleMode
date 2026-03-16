@@ -144,6 +144,7 @@ body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-s
 .add-serie-btn:active { color: var(--accent); }
 .ex-cues { padding: 8px 12px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text2); line-height: 1.6; }
 .ex-cues-label { font-size: 10px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 3px; }
+.ex-cues--progresion { background: rgba(232,240,58,0.04); border-left: 2px solid var(--accent); }
 .notes-area { width: 100%; background: none; border: none; border-top: 1px solid var(--border); padding: 10px 12px; color: var(--text2); font-family: 'DM Sans', sans-serif; font-size: 13px; resize: none; min-height: 44px; }
 .notes-area:focus { outline: none; color: var(--text); }
 

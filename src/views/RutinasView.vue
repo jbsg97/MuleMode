@@ -629,7 +629,7 @@ Valid muscle IDs: ${VALID_MUSCLES.join(', ')}
 Primary >60% MVC, secondary 30-60%, tertiary <30%.
 
 Respond ONLY with a JSON array (no markdown):
-[{"nombre":"exact name","musculos_p":["id"],"musculos_s":["id"],"musculos_t":[],"respiracion":"1 sentence","forma":"2 sentences technique","tips":"1 sentence if they don't feel it"}]`
+[{"nombre":"exact name","musculos_p":["id"],"musculos_s":["id"],"musculos_t":[],"respiracion":"1 sentence","forma":"2 sentences technique","tips":"1 sentence if they don't feel it","progresion":"1-2 sentences golden rule: when to add reps vs weight and by how much"}]`
 
   try {
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -648,7 +648,7 @@ Respond ONLY with a JSON array (no markdown):
     resultados.forEach(n => {
       const ex = rutina.ejercicios.find(e => e.nombre === n.nombre)
       if (!ex) return
-      ex.notas = { respiracion: n.respiracion || '', forma: n.forma || '', tips: n.tips || '' }
+      ex.notas = { respiracion: n.respiracion || '', forma: n.forma || '', tips: n.tips || '', progresion: n.progresion || '' }
       ex.musculos = [
         ...(n.musculos_p || []).filter(m => VALID_MUSCLES.includes(m)).map(m => ({ muscle: m, nivel: 'primario' })),
         ...(n.musculos_s || []).filter(m => VALID_MUSCLES.includes(m)).map(m => ({ muscle: m, nivel: 'secundario' })),
@@ -668,12 +668,13 @@ async function generarNotasBackground(rutinaId, ejercicio) {
   const equipoStr = EQUIPO_EN[ejercicio.equipo] ? ` (${EQUIPO_EN[ejercicio.equipo]})` : ''
 
   const prompt = `You are an experienced strength coach. For the exercise "${ejercicio.nombre}"${equipoStr}${genero ? ` performed by a ${genero}` : ''}, respond ONLY with valid JSON (no markdown):
-{"musculos":{"primario":[],"secundario":[],"terciario":[]},"respiracion":"string","forma":"string","tips":"string"}
+{"musculos":{"primario":[],"secundario":[],"terciario":[]},"respiracion":"string","forma":"string","tips":"string","progresion":"string"}
 
 All text in Spanish, casual tone. No "recuerda", no "asegúrate".
 - respiracion: when to inhale/exhale (1 sentence)
 - forma: 2 key technique points
 - tips: what to do if they don't feel the target muscle (1-2 sentences)
+- progresion: golden rule for this exercise — when to add reps vs weight and by how much (1-2 sentences)
 Valid muscle IDs: ${VALID_MUSCLES.join(', ')}. Primary >60% MVC, secondary 30-60%, tertiary <30%.`
 
   try {
@@ -694,7 +695,7 @@ Valid muscle IDs: ${VALID_MUSCLES.join(', ')}. Primary >60% MVC, secondary 30-60
     const ex     = rutina?.ejercicios.find(e => e.id === ejercicio.id)
     if (!ex) return
 
-    ex.notas   = { respiracion: json.respiracion || '', forma: json.forma || '', tips: json.tips || '' }
+    ex.notas   = { respiracion: json.respiracion || '', forma: json.forma || '', tips: json.tips || '', progresion: json.progresion || '' }
     ex.musculos = [
       ...filter(m.primario).map(muscle  => ({ muscle, nivel: 'primario' })),
       ...filter(m.secundario).map(muscle => ({ muscle, nivel: 'secundario' })),
