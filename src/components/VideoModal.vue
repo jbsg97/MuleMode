@@ -26,13 +26,14 @@
         </div>
       </div>
 
-      <!-- TikTok: solo botón externo -->
-      <div v-else-if="isTikTok">
-        <div class="video-placeholder" style="margin-bottom:12px">
-          <div style="font-size:32px">🎵</div>
-          <div style="font-size:13px;color:var(--text2)">TikTok no permite reproducir aquí</div>
+      <!-- TikTok: embed iframe -->
+      <div v-else-if="tikTokId">
+        <div class="video-frame video-frame--tiktok">
+          <iframe :src="`https://www.tiktok.com/embed/v2/${tikTokId}`"
+            allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            referrerpolicy="strict-origin-when-cross-origin"></iframe>
         </div>
-        <button class="btn btn-outline btn-full" style="margin-bottom:12px" @click="abrirExterno">
+        <button class="btn btn-outline btn-full" style="margin-top:8px;margin-bottom:12px" @click="abrirExterno">
           Abrir en TikTok ↗
         </button>
       </div>
@@ -49,9 +50,11 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label">URL del video</label>
-        <input class="form-input" type="url" placeholder="YouTube, TikTok u otro enlace..."
-          v-model="urlInput">
+        <label class="form-label">URL o código embed del video</label>
+        <textarea class="form-input" rows="2"
+          placeholder="Pega la URL de YouTube / TikTok, o el código embed de TikTok"
+          v-model="urlInput"
+          style="resize:none;font-size:12px;line-height:1.5"></textarea>
       </div>
       <button class="btn btn-accent btn-full" @click="guardar">Guardar video</button>
     </div>
@@ -74,10 +77,29 @@ const youtubeId = computed(() => {
   return m ? m[1] : null
 })
 
-const isTikTok = computed(() => /tiktok\.com/i.test(urlInput.value))
+// Extract TikTok video ID from URL or <blockquote> embed code
+const tikTokId = computed(() => {
+  const txt = urlInput.value
+  // data-video-id="123..." (embed code)
+  const fromEmbed = txt.match(/data-video-id="(\d+)"/)
+  if (fromEmbed) return fromEmbed[1]
+  // cite="https://www.tiktok.com/@.../video/123..."
+  const fromCite = txt.match(/cite="https:\/\/www\.tiktok\.com\/@[^/]+\/video\/(\d+)"/)
+  if (fromCite) return fromCite[1]
+  // plain URL: tiktok.com/@.../video/123...
+  const fromUrl = txt.match(/tiktok\.com\/@[^/]+\/video\/(\d+)/)
+  if (fromUrl) return fromUrl[1]
+  // short link or embed URL: tiktok.com/embed/v2/123...
+  const fromEmbed2 = txt.match(/tiktok\.com\/embed\/v2\/(\d+)/)
+  if (fromEmbed2) return fromEmbed2[1]
+  return null
+})
 
 function guardar() {
-  store.guardarVideo(urlInput.value.trim())
+  let url = urlInput.value.trim()
+  // If embed code was pasted, store a clean TikTok URL
+  if (tikTokId.value) url = `https://www.tiktok.com/video/${tikTokId.value}`
+  store.guardarVideo(url)
   store.videoModalVisible = false
 }
 
@@ -86,6 +108,9 @@ function cerrar() {
 }
 
 function abrirExterno() {
-  if (urlInput.value) window.open(urlInput.value, '_blank')
+  const url = tikTokId.value
+    ? `https://www.tiktok.com/video/${tikTokId.value}`
+    : urlInput.value
+  if (url) window.open(url, '_blank')
 }
 </script>
