@@ -552,7 +552,7 @@ function toRutinaEjercicios(r) {
     equipo: e.equipo || '',
     tipoMedida: e.tipoMedida || 'reps',
     descansoRecomendado: parseInt(e.descansoRecomendado) || 90,
-    notas: { respiracion: '', forma: '', tips: '' },
+    notas: { respiracion: '', forma: '', tips: '', progresion: '' },
     musculos: [],
   }))
 }
@@ -616,7 +616,7 @@ Valid muscle IDs: ${VALID_MUSCLES.join(', ')}
 Primary = >60% MVC, secondary = 30-60%, tertiary = <30%.
 
 Respond ONLY with a JSON array (no markdown, no extra text):
-[{"nombre":"exact name as given","musculos_p":["muscle"],"musculos_s":["muscle"],"musculos_t":[],"respiracion":"one sentence when to inhale/exhale","forma":"2 sentences key technique points","tips":"1 sentence if they don't feel the target muscle"}]`
+[{"nombre":"exact name as given","musculos_p":["muscle"],"musculos_s":["muscle"],"musculos_t":[],"respiracion":"one sentence when to inhale/exhale","forma":"2 sentences key technique points","tips":"1 sentence if they don't feel the target muscle","progresion":"1-2 sentences golden rule: when to add reps vs weight and by how much"}]`
 
   try {
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -641,7 +641,7 @@ Respond ONLY with a JSON array (no markdown, no extra text):
     resultados.forEach(n => {
       const ex = rutina.ejercicios.find(e => e.nombre === n.nombre)
       if (!ex) return
-      ex.notas = { respiracion: n.respiracion || '', forma: n.forma || '', tips: n.tips || '' }
+      ex.notas = { respiracion: n.respiracion || '', forma: n.forma || '', tips: n.tips || '', progresion: n.progresion || '' }
       ex.musculos = [
         ...(n.musculos_p || []).filter(m => VALID_MUSCLES.includes(m)).map(m => ({ muscle: m, nivel: 'primario' })),
         ...(n.musculos_s || []).filter(m => VALID_MUSCLES.includes(m)).map(m => ({ muscle: m, nivel: 'secundario' })),
