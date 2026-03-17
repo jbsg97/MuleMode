@@ -476,7 +476,7 @@ export const useStore = defineStore('mulemode', {
 
     ajustarDescanso(delta) {
       // Shift the virtual start time so restRemaining changes by delta
-      this.restStartTime -= delta * 1000
+      this.restStartTime += delta * 1000
       this.restRemaining = Math.max(5, this.restTotal - Math.floor((Date.now() - this.restStartTime) / 1000))
     },
 
