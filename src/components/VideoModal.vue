@@ -108,9 +108,27 @@ function cerrar() {
 }
 
 function abrirExterno() {
-  const url = tikTokId.value
-    ? `https://www.tiktok.com/video/${tikTokId.value}`
-    : urlInput.value
-  if (url) window.open(url, '_blank')
+  if (tikTokId.value) {
+    abrirTikTok(tikTokId.value)
+  } else if (urlInput.value) {
+    window.open(urlInput.value, '_blank')
+  }
+}
+
+function abrirTikTok(videoId) {
+  const webUrl  = `https://www.tiktok.com/video/${videoId}`
+  const appUrl  = `tiktok://video/${videoId}`
+  let appOpened = false
+
+  // If page goes hidden, the app opened — cancel web fallback
+  const onHide = () => { appOpened = true; clearTimeout(timer) }
+  document.addEventListener('visibilitychange', onHide, { once: true })
+
+  const timer = setTimeout(() => {
+    document.removeEventListener('visibilitychange', onHide)
+    if (!appOpened) window.open(webUrl, '_blank')
+  }, 1500)
+
+  window.location.href = appUrl
 }
 </script>
