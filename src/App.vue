@@ -70,7 +70,11 @@ onMounted(() => {
       store.uid = null
     }
     store.authChecked = true
-      if (store.workout) currentPage.value = 'workout'
+    if (store.workout) currentPage.value = 'workout'
+  })
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) store.recalcularTimers()
   })
 })
 </script>

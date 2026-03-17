@@ -95,6 +95,7 @@ export const useStore = defineStore('mulemode', {
     // timer
     restTotal: 90,
     restRemaining: 0,
+    restStartTime: 0,
     restVisible: false,
     restInterval: null,
     wkElapsed: 0,
@@ -211,10 +212,11 @@ export const useStore = defineStore('mulemode', {
           this.memoriaEntrenador = d.memoriaEntrenador || ''
           if (d.workout) {
             this.workout = d.workout
-            // Recalcular tiempo transcurrido desde startTime original
             this.wkElapsed = Math.floor((Date.now() - d.workout.startTime) / 1000)
             if (this.wkInterval) clearInterval(this.wkInterval)
-            this.wkInterval = setInterval(() => { this.wkElapsed++ }, 1000)
+            this.wkInterval = setInterval(() => {
+              if (this.workout) this.wkElapsed = Math.floor((Date.now() - this.workout.startTime) / 1000)
+            }, 1000)
           }
         } else {
           this.rutinas  = defaultRutinas()
@@ -346,7 +348,9 @@ export const useStore = defineStore('mulemode', {
       this.restTotal = 90
       this.wkElapsed = 0
       if (this.wkInterval) clearInterval(this.wkInterval)
-      this.wkInterval = setInterval(() => { this.wkElapsed++ }, 1000)
+      this.wkInterval = setInterval(() => {
+        if (this.workout) this.wkElapsed = Math.floor((Date.now() - this.workout.startTime) / 1000)
+      }, 1000)
       this.save()
     },
 
@@ -378,6 +382,27 @@ export const useStore = defineStore('mulemode', {
 
     updateExNota(ei, val) {
       if (this.workout) this.workout.ejercicios[ei].notaSession = val
+    },
+
+    updateWorkoutExercise(ei, { nombre, reps, equipo, descansoRecomendado, series }) {
+      if (!this.workout) return
+      const ex = this.workout.ejercicios[ei]
+      if (nombre !== undefined)              ex.nombre = nombre
+      if (reps !== undefined)               ex.reps   = reps
+      if (equipo !== undefined)             ex.equipo = equipo
+      if (descansoRecomendado !== undefined) ex.descansoRecomendado = descansoRecomendado
+      if (series !== undefined) {
+        const current = ex.series.length
+        if (series > current) {
+          for (let i = current; i < series; i++)
+            ex.series.push({ idx: i + 1, peso: '', reps: ex.reps.replace(/[^0-9]/g, '') || '', done: false })
+        } else if (series < current && series >= 1) {
+          ex.series = ex.series.slice(0, series)
+        }
+        // Re-index
+        ex.series.forEach((s, i) => { s.idx = i + 1 })
+      }
+      this.save()
     },
 
     terminarEntrenamiento() {
@@ -431,13 +456,14 @@ export const useStore = defineStore('mulemode', {
     iniciarDescanso(seg) {
       const duration = seg ?? this.restTotal
       if (this.restInterval) clearInterval(this.restInterval)
-      this.restTotal = duration
+      this.restTotal     = duration
+      this.restStartTime = Date.now()
       this.restRemaining = duration
-      this.restVisible = true
-      this.restInterval = setInterval(() => {
-        this.restRemaining--
+      this.restVisible   = true
+      this.restInterval  = setInterval(() => {
+        this.restRemaining = Math.max(0, this.restTotal - Math.floor((Date.now() - this.restStartTime) / 1000))
         if (this.restRemaining <= 0) this.saltarDescanso()
-      }, 1000)
+      }, 500)
     },
 
     saltarDescanso() {
@@ -446,7 +472,17 @@ export const useStore = defineStore('mulemode', {
     },
 
     ajustarDescanso(delta) {
-      this.restRemaining = Math.max(5, this.restRemaining + delta)
+      // Shift the virtual start time so restRemaining changes by delta
+      this.restStartTime -= delta * 1000
+      this.restRemaining = Math.max(5, this.restTotal - Math.floor((Date.now() - this.restStartTime) / 1000))
+    },
+
+    recalcularTimers() {
+      if (this.workout) this.wkElapsed = Math.floor((Date.now() - this.workout.startTime) / 1000)
+      if (this.restVisible && this.restStartTime) {
+        this.restRemaining = Math.max(0, this.restTotal - Math.floor((Date.now() - this.restStartTime) / 1000))
+        if (this.restRemaining <= 0) this.saltarDescanso()
+      }
     },
 
     // ── HELPERS ───────────────────────────────────────────────────

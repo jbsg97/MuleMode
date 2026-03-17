@@ -15,7 +15,7 @@
     <div v-if="store.workout">
       <div v-for="(ex, ei) in store.workout.ejercicios" :key="ei" class="exercise-block">
         <div class="ex-block-header" @click="toggleExBlock(ei)">
-          <div>
+          <div style="flex:1;min-width:0">
             <div class="ex-block-name">
               {{ ex.nombre }}
               <span v-if="equipoMap[ex.equipo]" class="ex-tag" style="margin-left:6px"
@@ -31,6 +31,49 @@
               🧠 {{ showMap[ei] ? 'Ocultar' : 'Músculos' }}
             </button>
             <button class="ex-video-btn" @click.stop="store.abrirVideo(ex.id, ex.nombre)">▶ Video</button>
+            <button class="ex-video-btn" @click.stop="toggleEdit(ei)">
+              {{ editing[ei] ? '✓ Listo' : '✎ Editar' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Inline edit panel -->
+        <div v-if="editing[ei]" class="ex-edit-panel">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+            <div style="grid-column:1/-1">
+              <label class="ex-edit-label">Nombre</label>
+              <input class="series-input" style="width:100%;box-sizing:border-box"
+                :value="ex.nombre"
+                @change="store.updateWorkoutExercise(ei, { nombre: $event.target.value })">
+            </div>
+            <div>
+              <label class="ex-edit-label">Reps objetivo</label>
+              <input class="series-input" style="width:100%;box-sizing:border-box"
+                :value="ex.reps"
+                @change="store.updateWorkoutExercise(ei, { reps: $event.target.value })">
+            </div>
+            <div>
+              <label class="ex-edit-label">N° de series</label>
+              <input class="series-input" type="number" min="1" max="20"
+                style="width:100%;box-sizing:border-box"
+                :value="ex.series.length"
+                @change="store.updateWorkoutExercise(ei, { series: parseInt($event.target.value) || 1 })">
+            </div>
+            <div>
+              <label class="ex-edit-label">Equipo</label>
+              <select class="series-input" style="width:100%;box-sizing:border-box;padding:6px 8px"
+                :value="ex.equipo"
+                @change="store.updateWorkoutExercise(ei, { equipo: $event.target.value })">
+                <option v-for="[val, label] in store.allEquipoOptions" :key="val" :value="val">{{ label }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="ex-edit-label">Descanso (seg)</label>
+              <input class="series-input" type="number" min="10" max="600" step="5"
+                style="width:100%;box-sizing:border-box"
+                :value="ex.descansoRecomendado"
+                @change="store.updateWorkoutExercise(ei, { descansoRecomendado: parseInt($event.target.value) || 90 })">
+            </div>
           </div>
         </div>
 
@@ -125,6 +168,7 @@ const store     = useStore()
 const equipoMap = store.allEquipos
 const collapsed = reactive({})
 const showMap   = reactive({})
+const editing   = reactive({})
 
 // Inicializar: primer ejercicio abierto, los demás cerrados
 watch(() => store.workout, (w) => {
@@ -134,9 +178,30 @@ watch(() => store.workout, (w) => {
 
 function toggleExBlock(ei) {
   const opening = collapsed[ei]
-  // Colapsar todos
   if (store.workout) store.workout.ejercicios.forEach((_, i) => { collapsed[i] = true })
-  // Abrir el seleccionado (o dejarlo cerrado si ya estaba abierto)
   if (opening) collapsed[ei] = false
 }
+
+function toggleEdit(ei) {
+  editing[ei] = !editing[ei]
+  if (editing[ei]) collapsed[ei] = false // open block when editing
+}
 </script>
+
+<style scoped>
+.ex-edit-panel {
+  padding: 10px 12px;
+  background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+}
+
+.ex-edit-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+</style>
