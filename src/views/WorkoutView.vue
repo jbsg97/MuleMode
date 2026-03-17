@@ -24,16 +24,16 @@
               </span>
             </div>
             <div class="ex-block-detail">{{ ex.series.length }} series · {{ ex.reps }}</div>
-          </div>
-          <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
-            <button v-if="ex.musculos && ex.musculos.length" class="ex-video-btn"
-              @click.stop="showMap[ei] = !showMap[ei]">
-              🧠 {{ showMap[ei] ? 'Ocultar' : 'Músculos' }}
-            </button>
-            <button class="ex-video-btn" @click.stop="store.abrirVideo(ex.id, ex.nombre)">▶ Video</button>
-            <button class="ex-video-btn" @click.stop="toggleEdit(ei)">
-              {{ editing[ei] ? '✓ Listo' : '✎ Editar' }}
-            </button>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+              <button v-if="ex.musculos && ex.musculos.length" class="ex-video-btn"
+                @click.stop="showMap[ei] = !showMap[ei]">
+                🧠 {{ showMap[ei] ? 'Ocultar' : 'Músculos' }}
+              </button>
+              <button class="ex-video-btn" @click.stop="store.abrirVideo(ex.id, ex.nombre)">▶ Video</button>
+              <button class="ex-video-btn" @click.stop="toggleEdit(ei)">
+                {{ editing[ei] ? '✓ Listo' : '✎ Editar' }}
+              </button>
+            </div>
           </div>
         </div>
 
