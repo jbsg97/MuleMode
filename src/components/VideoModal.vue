@@ -116,23 +116,27 @@ function abrirExterno() {
 }
 
 function abrirTikTok(videoId) {
-  const webUrl  = `https://www.tiktok.com/video/${videoId}`
-  const appUrl  = `tiktok://aweme/detail?aweme_id=${videoId}`
-  let appOpened = false
+  const webUrl = `https://www.tiktok.com/video/${videoId}`
+  const isAndroid = /android/i.test(navigator.userAgent)
 
-  const onHide = () => { appOpened = true; clearTimeout(timer) }
-  document.addEventListener('visibilitychange', onHide, { once: true })
-
-  const timer = setTimeout(() => {
-    document.removeEventListener('visibilitychange', onHide)
-    if (!appOpened) window.open(webUrl, '_blank')
-  }, 1500)
-
-  // Use <a>.click() — avoids navigating the PWA page (which resets store state)
-  const a = document.createElement('a')
-  a.href = appUrl
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
+  if (isAndroid) {
+    // intent:// scheme: Android routes directly to the app WITHOUT navigating the page.
+    // If TikTok isn't installed, browser_fallback_url opens the web version instead.
+    const fallback = encodeURIComponent(webUrl)
+    window.location.href =
+      `intent://aweme/detail?aweme_id=${videoId}` +
+      `#Intent;scheme=snssdk1233;package=com.zhiliaoapp.musically;` +
+      `S.browser_fallback_url=${fallback};end`
+  } else {
+    // iOS: try tiktok:// scheme, fall back to web after 1.5s
+    let appOpened = false
+    const onHide = () => { appOpened = true; clearTimeout(timer) }
+    document.addEventListener('visibilitychange', onHide, { once: true })
+    const timer = setTimeout(() => {
+      document.removeEventListener('visibilitychange', onHide)
+      if (!appOpened) window.open(webUrl, '_blank')
+    }, 1500)
+    window.location.href = `tiktok://aweme/detail?aweme_id=${videoId}`
+  }
 }
 </script>
