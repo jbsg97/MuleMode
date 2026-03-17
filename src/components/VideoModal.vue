@@ -117,10 +117,9 @@ function abrirExterno() {
 
 function abrirTikTok(videoId) {
   const webUrl  = `https://www.tiktok.com/video/${videoId}`
-  const appUrl  = `tiktok://video/${videoId}`
+  const appUrl  = `tiktok://aweme/detail?aweme_id=${videoId}`
   let appOpened = false
 
-  // If page goes hidden, the app opened — cancel web fallback
   const onHide = () => { appOpened = true; clearTimeout(timer) }
   document.addEventListener('visibilitychange', onHide, { once: true })
 
@@ -129,6 +128,11 @@ function abrirTikTok(videoId) {
     if (!appOpened) window.open(webUrl, '_blank')
   }, 1500)
 
-  window.location.href = appUrl
+  // Use <a>.click() — avoids navigating the PWA page (which resets store state)
+  const a = document.createElement('a')
+  a.href = appUrl
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
 }
 </script>
