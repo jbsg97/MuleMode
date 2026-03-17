@@ -460,6 +460,8 @@ export const useStore = defineStore('mulemode', {
       this.restStartTime = Date.now()
       this.restRemaining = duration
       this.restVisible   = true
+      // Persist so the timer survives if Android kills the PWA in background
+      localStorage.setItem('mulemode_rest_timer', JSON.stringify({ startTime: this.restStartTime, total: duration }))
       this.restInterval  = setInterval(() => {
         this.restRemaining = Math.max(0, this.restTotal - Math.floor((Date.now() - this.restStartTime) / 1000))
         if (this.restRemaining <= 0) this.saltarDescanso()
@@ -469,6 +471,7 @@ export const useStore = defineStore('mulemode', {
     saltarDescanso() {
       if (this.restInterval) clearInterval(this.restInterval)
       this.restVisible = false
+      localStorage.removeItem('mulemode_rest_timer')
     },
 
     ajustarDescanso(delta) {
@@ -479,9 +482,32 @@ export const useStore = defineStore('mulemode', {
 
     recalcularTimers() {
       if (this.workout) this.wkElapsed = Math.floor((Date.now() - this.workout.startTime) / 1000)
+
       if (this.restVisible && this.restStartTime) {
         this.restRemaining = Math.max(0, this.restTotal - Math.floor((Date.now() - this.restStartTime) / 1000))
         if (this.restRemaining <= 0) this.saltarDescanso()
+      } else {
+        // App may have been killed and reloaded — try to restore from localStorage
+        try {
+          const saved = localStorage.getItem('mulemode_rest_timer')
+          if (saved) {
+            const { startTime, total } = JSON.parse(saved)
+            const remaining = Math.max(0, total - Math.floor((Date.now() - startTime) / 1000))
+            if (remaining > 0) {
+              this.restTotal     = total
+              this.restStartTime = startTime
+              this.restRemaining = remaining
+              this.restVisible   = true
+              if (this.restInterval) clearInterval(this.restInterval)
+              this.restInterval = setInterval(() => {
+                this.restRemaining = Math.max(0, this.restTotal - Math.floor((Date.now() - this.restStartTime) / 1000))
+                if (this.restRemaining <= 0) this.saltarDescanso()
+              }, 500)
+            } else {
+              localStorage.removeItem('mulemode_rest_timer')
+            }
+          }
+        } catch {}
       }
     },
 

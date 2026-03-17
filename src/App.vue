@@ -73,6 +73,9 @@ onMounted(() => {
     if (store.workout) currentPage.value = 'workout'
   })
 
+  // Restore timer on initial load (in case Android killed the app in background)
+  store.recalcularTimers()
+
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) store.recalcularTimers()
   })
