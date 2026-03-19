@@ -7,7 +7,7 @@
 
     <div style="padding:16px;overflow-y:auto;flex:1;padding-bottom:16px">
 
-      <!-- Step 1: prompt -->
+      <!-- Step 1: objetivo + días -->
       <template v-if="step === 1">
         <div class="gr-profile-chips">
           <span v-if="store.genero" class="gr-chip">
@@ -25,20 +25,46 @@
           </span>
         </div>
 
-        <div class="form-group">
-          <label class="form-label">¿Qué tipo de rutina quieres?</label>
-          <textarea class="form-input gr-prompt-input" rows="4" v-model="prompt"
-            placeholder="Ej: 3 rutinas para la semana, tren superior, inferior y core. 45 min cada una. Me duele la espalda baja así que evita peso muerto."></textarea>
-        </div>
-
-        <div style="margin-bottom:16px">
-          <div class="form-label" style="margin-bottom:8px">Sugerencias rápidas</div>
-          <div style="display:flex;flex-direction:column;gap:6px">
-            <button v-for="s in QUICK_PROMPTS" :key="s" class="gr-quick-btn" @click="prompt = s">
-              {{ s }}
-            </button>
+        <!-- Objetivo -->
+        <template v-if="!modoAvanzado">
+          <div class="form-label" style="margin-bottom:8px">¿Cuál es tu objetivo?</div>
+          <div style="margin-bottom:16px">
+            <div v-for="o in OBJETIVOS" :key="o.id"
+              class="gr-objetivo-card"
+              :class="{ 'gr-objetivo-card--active': objetivoSeleccionado === o.id }"
+              @click="objetivoSeleccionado = o.id">
+              <div style="display:flex;align-items:baseline;gap:6px;flex-wrap:wrap">
+                <span class="gr-objetivo-nombre">{{ o.nombre }}</span>
+                <span class="gr-objetivo-sub">({{ o.sub }})</span>
+              </div>
+              <div class="gr-objetivo-desc">{{ o.desc }}</div>
+            </div>
           </div>
-        </div>
+
+          <!-- Días -->
+          <div class="form-label" style="margin-bottom:8px">Días por semana</div>
+          <div class="gr-dias-btns" style="margin-bottom:20px">
+            <button v-for="d in [2, 3, 4, 5]" :key="d"
+              class="gr-dias-btn" :class="{ active: diasSeleccionados === d }"
+              @click="diasSeleccionados = d">{{ d }}</button>
+          </div>
+
+          <button class="gr-avanzado-toggle" @click="modoAvanzado = true">
+            ✏️ Personalizar solicitud
+          </button>
+        </template>
+
+        <!-- Modo avanzado: texto libre -->
+        <template v-else>
+          <div class="form-group">
+            <label class="form-label">¿Qué tipo de rutina quieres?</label>
+            <textarea class="form-input gr-prompt-input" rows="4" v-model="prompt"
+              placeholder="Ej: 3 rutinas para la semana, tren superior, inferior y core. 45 min cada una. Me duele la espalda baja así que evita peso muerto."></textarea>
+          </div>
+          <button class="gr-avanzado-toggle" style="margin-bottom:16px" @click="modoAvanzado = false; prompt = ''">
+            ← Volver al selector de objetivo
+          </button>
+        </template>
       </template>
 
       <!-- Step 2: loading -->
@@ -190,7 +216,9 @@
     </div>
 
     <div class="modal-footer" v-if="step === 1">
-      <button class="btn btn-accent btn-full" :disabled="!prompt.trim()" @click="generar">
+      <button class="btn btn-accent btn-full"
+        :disabled="modoAvanzado ? !prompt.trim() : !objetivoSeleccionado"
+        @click="handleGenerar">
         Generar rutina
       </button>
     </div>
@@ -230,18 +258,69 @@ const addPrompt        = ref('')
 const addingRutina     = ref(false)
 const planNombre       = ref('')
 
+// Step 1 state
+const objetivoSeleccionado = ref(null)
+const diasSeleccionados    = ref(3)
+const modoAvanzado         = ref(false)
+
 const VALID_MUSCLES = ['chest','obliques','abs','biceps','triceps','front-deltoids',
   'abductors','quadriceps','calves','forearm','trapezius','upper-back','lower-back',
   'back-deltoids','gluteal','adductor','hamstring','left-soleus']
 
 const EQUIPO_LABELS_ES = { kb: 'kettlebell', sb: 'sandbag', bb: 'barra', db: 'mancuerna', bw: 'peso corporal', band: 'bandas de resistencia', trx: 'TRX' }
 
-const QUICK_PROMPTS = [
-  '3 rutinas semanales: tren superior, tren inferior y core. 45 min cada una.',
-  '4 rutinas push/pull/legs/full body. 50 min cada una.',
-  '2 rutinas fullbody para la semana. 30-40 min cada una.',
-  '3 rutinas fullbody que trabajen todos los músculos. Sin repetir grupos el mismo día.',
+const OBJETIVOS = [
+  {
+    id: 'carga',
+    nombre: 'Mula de Carga',
+    sub: 'Fuerza total',
+    desc: 'Los números más altos en los movimientos base',
+    instrucciones: 'Programa de fuerza con rangos de 4-6 reps en sentadilla, peso muerto y press. Progresión lineal como prioridad absoluta. Pocos ejercicios de aislamiento.',
+  },
+  {
+    id: 'petacona',
+    nombre: 'Mula Petacona',
+    sub: 'Piernas y glúteos',
+    desc: 'Fuerza y volumen de tren inferior',
+    instrucciones: 'Sentadilla, hip thrust, peso muerto y variantes como movimientos principales. Volumen alto de tren inferior. Tren superior como complemento de mantenimiento.',
+  },
+  {
+    id: 'agil',
+    nombre: 'Mula Ágil',
+    sub: 'Cuerpo atlético funcional',
+    desc: 'Fuerte, móvil, no torpe',
+    instrucciones: 'Movimientos compuestos funcionales. Balance push/pull/legs. Énfasis en fuerza y movilidad. Kettlebell y barra como base preferida.',
+  },
+  {
+    id: 'imponente',
+    nombre: 'Mula Imponente',
+    sub: 'Tren superior potente',
+    desc: 'Espalda ancha, hombros y brazos',
+    instrucciones: 'Volumen alto en press, jale vertical y horizontal. Trabajo específico de hombros y brazos. Pierna como mantenimiento.',
+  },
+  {
+    id: 'fina',
+    nombre: 'Mula Fina',
+    sub: 'Definición y recomposición',
+    desc: 'Menos grasa, mismo músculo',
+    instrucciones: 'Movimientos compuestos con rangos de hipertrofia de 10-15 reps. Densidad de entrenamiento alta. Descansos cortos. Sin volumen excesivo de aislamiento.',
+  },
 ]
+
+function buildPromptDesdeObjetivo() {
+  const obj = OBJETIVOS.find(o => o.id === objetivoSeleccionado.value)
+  if (!obj) return ''
+  return `${diasSeleccionados.value} rutinas para la semana — objetivo: ${obj.nombre} (${obj.sub}). ${obj.instrucciones}`
+}
+
+function handleGenerar() {
+  if (!store.geminiKey) return
+  if (!modoAvanzado.value) {
+    if (!objetivoSeleccionado.value) return
+    prompt.value = buildPromptDesdeObjetivo()
+  }
+  generar()
+}
 
 async function extraerMemoriaDeChats() {
   const turns = rutinasGeneradas.value.flatMap(r =>
@@ -663,12 +742,72 @@ Respond ONLY with a JSON array (no markdown, no extra text):
 
 .gr-prompt-input { resize:none; font-size:14px; line-height:1.6; min-height:100px; }
 
-.gr-quick-btn {
-  background:var(--bg3); border:1px solid var(--border); border-radius:var(--radius-sm);
-  color:var(--text2); font-size:12px; padding:10px 12px;
-  text-align:left; cursor:pointer; line-height:1.4; width:100%;
+/* Objetivo cards */
+.gr-objetivo-card {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: border-color 0.15s, background 0.15s;
 }
-.gr-quick-btn:active { border-color:var(--accent); }
+.gr-objetivo-card:active { border-color: var(--accent); }
+.gr-objetivo-card--active {
+  border-color: var(--accent);
+  background: rgba(232,240,58,0.06);
+}
+.gr-objetivo-nombre {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 17px;
+  color: var(--text1);
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+.gr-objetivo-sub {
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 600;
+}
+.gr-objetivo-desc {
+  font-size: 12px;
+  color: var(--text3);
+  margin-top: 5px;
+}
+
+/* Días */
+.gr-dias-btns { display: flex; gap: 8px; }
+.gr-dias-btn {
+  flex: 1;
+  height: 44px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text3);
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 22px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.gr-dias-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(232,240,58,0.06);
+}
+
+/* Modo avanzado toggle */
+.gr-avanzado-toggle {
+  background: none;
+  border: none;
+  color: var(--text3);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  display: block;
+  margin-bottom: 16px;
+}
 
 .gr-loading { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:60px 20px; gap:16px; }
 .gr-loading-spinner { width:40px; height:40px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:gr-spin 0.8s linear infinite; }
