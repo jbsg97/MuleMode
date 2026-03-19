@@ -242,7 +242,42 @@ const QUICK_PROMPTS = [
   '3 rutinas fullbody que trabajen todos los músculos. Sin repetir grupos el mismo día.',
 ]
 
+async function extraerMemoriaDeChats() {
+  if (!store.geminiKey) return
+  // Collect all user+assistant turns from every routine's chat
+  const turns = rutinasGeneradas.value.flatMap(r =>
+    (r._messages || []).filter(m => m.role === 'user' || m.role === 'assistant')
+  )
+  if (!turns.length) return
+
+  const memoriaActual = store.memoriaEntrenador
+  const dialogo = turns.map(m => `${m.role === 'user' ? 'Atleta' : 'Entrenador'}: ${m.content}`).join('\n')
+  const fecha = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+
+  const prompt = `Eres un asistente que extrae hechos relevantes sobre un atleta de una conversación con su entrenador durante el ajuste de un plan de entrenamiento.
+
+Memoria actual:
+${memoriaActual || '(ninguna aún)'}
+
+Conversación de ajuste del plan:
+${dialogo}
+
+Extrae ÚNICAMENTE hechos nuevos no presentes en la memoria: lesiones, molestias, puntos débiles, metas, equipo, nivel, preferencias. Si hay nueva info, devuelve solo las líneas nuevas como "- [hecho] (${fecha})". Si no hay nada nuevo, responde exactamente: NADA`
+
+  try {
+    const nuevos = (await callClaude(store.geminiKey, {
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 200,
+    })).trim()
+    if (nuevos && nuevos !== 'NADA') {
+      store.memoriaEntrenador = [memoriaActual, nuevos].filter(Boolean).join('\n')
+      store.save()
+    }
+  } catch { /* silencioso */ }
+}
+
 function cerrar() {
+  extraerMemoriaDeChats()
   store.generarRutinaModalVisible = false
   planNombre.value = ''
 }
