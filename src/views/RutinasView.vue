@@ -229,6 +229,7 @@ import { useStore, MUSCLE_LABELS } from '../store/index.js'
 import MuscleMap from '../components/MuscleMap.vue'
 import RoutineCard from '../components/RoutineCard.vue'
 import { callClaude } from '../utils/claude.js'
+import { esTrenInferior } from '../utils/progresion.js'
 
 defineEmits(['settings'])
 
@@ -631,8 +632,10 @@ ${lista}
 Valid muscle IDs: ${VALID_MUSCLES.join(', ')}
 Primary >60% MVC, secondary 30-60%, tertiary <30%.
 
+Available weight increments: upper body ${store.incrementoTrenSuperior ?? 2.5}kg, lower body ${store.incrementoTrenInferior ?? 5}kg. Never suggest smaller increments than these in "progresion".
+
 Respond ONLY with a JSON array (no markdown):
-[{"nombre":"exact name","musculos_p":["id"],"musculos_s":["id"],"musculos_t":[],"respiracion":"1 sentence","forma":"2 sentences technique","tips":"1 sentence if they don't feel it","progresion":"1-2 sentences golden rule: when to add reps vs weight and by how much"}]`
+[{"nombre":"exact name","musculos_p":["id"],"musculos_s":["id"],"musculos_t":[],"respiracion":"1 sentence","forma":"2 sentences technique","tips":"1 sentence if they don't feel it","progresion":"1-2 sentences golden rule: when to add reps vs weight, using the applicable increment"}]`
 
   try {
     let raw = (await callClaude(key, {
@@ -674,7 +677,7 @@ All text in Spanish, casual tone. No "recuerda", no "asegúrate".
 - respiracion: when to inhale/exhale (1 sentence)
 - forma: 2 key technique points
 - tips: what to do if they don't feel the target muscle (1-2 sentences)
-- progresion: golden rule for this exercise — when to add reps vs weight and by how much (1-2 sentences)
+- progresion: golden rule for this exercise — when to add reps vs weight. Available increment: ${esTrenInferior(ejercicio.nombre) ? (store.incrementoTrenInferior ?? 5) : (store.incrementoTrenSuperior ?? 2.5)}kg total (user can only increase in multiples of this value — never suggest smaller increments).
 Valid muscle IDs: ${VALID_MUSCLES.join(', ')}. Primary >60% MVC, secondary 30-60%, tertiary <30%.`
 
   try {

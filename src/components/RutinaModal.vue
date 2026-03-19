@@ -158,6 +158,7 @@ import { ref, watch } from 'vue'
 import { useStore, MUSCLE_LABELS } from '../store/index.js'
 import MuscleMap from './MuscleMap.vue'
 import { callClaude } from '../utils/claude.js'
+import { esTrenInferior } from '../utils/progresion.js'
 
 const VALID_MUSCLES = ['chest','obliques','abs','biceps','triceps','front-deltoids',
   'abductors','quadriceps','calves','forearm','trapezius','upper-back','lower-back',
@@ -196,7 +197,10 @@ async function generarConIA(ex) {
   const generoEs  = store.genero === 'hombre' ? 'hombre' : store.genero === 'mujer' ? 'mujer' : null
   const generoTip = generoEs ? ` El usuario es ${generoEs}, adapta terminología, enfasis muscular y cualquier variación relevante por género.` : ''
 
-  const memoria = store.memoriaEntrenador
+  const memoria    = store.memoriaEntrenador
+  const incremento = esTrenInferior(ex.nombre)
+    ? (store.incrementoTrenInferior ?? 5)
+    : (store.incrementoTrenSuperior ?? 2.5)
   const prompt = `You are an experienced strength coach who knows this athlete well.${memoria ? ` What you know about them:\n${memoria}\n` : ''} For the exercise "${ex.nombre}"${equipoStr} performed by a ${generoCtx}, respond ONLY with valid JSON (no markdown, no extra text):
 {
   "musculos": {"primario":[],"secundario":[],"terciario":[]},
@@ -211,7 +215,7 @@ Write all text fields in Spanish, casual and friendly tone — like advice from 
 - "respiracion": one sentence, exactly when to inhale and exhale during the movement.
 - "forma": 2 sentences, the most important technique points to do it right and avoid injury.
 - "tips": 1-2 sentences, what to do if they don't feel the target muscle — practical and specific.
-- "progresion": 1-2 sentences, the golden rule for progression on this specific exercise — when to add reps vs when to add weight, and by how much. E.g. "Cuando completes todas las reps con buena técnica, sube 2 kg. Si no cierras todas las series, mantén el peso."
+- "progresion": 1-2 sentences, the golden rule for progression on this specific exercise — when to add reps vs when to add weight. Available increment for this exercise: ${incremento}kg total (user can only increase in multiples of this value — never suggest smaller increments).
 ${generoTip}
 For "busqueda_video": search query in Spanish like: Como hacer peso muerto correctamente para hombre. Plain text, no special characters.
 For musculos use ONLY: ${VALID_MUSCLES.join(', ')}. Primary >60% MVC, secondary 30-60%, tertiary <30%.`

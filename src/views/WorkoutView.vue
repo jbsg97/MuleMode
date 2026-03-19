@@ -135,6 +135,11 @@
               </div>
               <div v-if="ex.notas.progresion" class="ex-cues ex-cues--progresion">
                 <div class="ex-cues-label">📈 Progresión</div>
+                <div v-if="progresionEx(ex.nombre)" class="prog-badge"
+                  :style="progBadgeStyle(progresionEx(ex.nombre).estado)"
+                  style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700;margin-bottom:6px">
+                  {{ progBadgeIcon(progresionEx(ex.nombre).estado) }} {{ progresionEx(ex.nombre).mensaje }}
+                </div>
                 {{ ex.notas.progresion }}
               </div>
             </template>
@@ -161,6 +166,7 @@ import { reactive, watch } from 'vue'
 import { useStore } from '../store/index.js'
 import MuscleMap from '../components/MuscleMap.vue'
 import ExerciseChat from '../components/ExerciseChat.vue'
+import { calcularProgresion } from '../utils/progresion.js'
 
 defineEmits(['finish'])
 
@@ -185,6 +191,26 @@ function toggleExBlock(ei) {
 function toggleEdit(ei) {
   editing[ei] = !editing[ei]
   if (editing[ei]) collapsed[ei] = false // open block when editing
+}
+
+function progresionEx(nombre) {
+  return calcularProgresion(
+    nombre,
+    store.historial,
+    store.rutinas,
+    store.incrementoTrenSuperior ?? 2.5,
+    store.incrementoTrenInferior ?? 5,
+  )
+}
+
+function progBadgeIcon(estado) {
+  return estado === 'subirPeso' ? '↑' : estado === 'subirReps' ? '→' : '='
+}
+
+function progBadgeStyle(estado) {
+  if (estado === 'subirPeso')  return { background: 'rgba(68,204,136,0.15)', color: '#44cc88', border: '1px solid rgba(68,204,136,0.3)' }
+  if (estado === 'subirReps') return { background: 'rgba(232,240,58,0.12)', color: '#e8f03a', border: '1px solid rgba(232,240,58,0.3)' }
+  return { background: 'rgba(160,160,160,0.12)', color: '#aaa', border: '1px solid rgba(160,160,160,0.25)' }
 }
 </script>
 
