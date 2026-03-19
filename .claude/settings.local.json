@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh auth:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(npm install:*)",
+      "Bash(where node:*)",
+      "Bash(where npm:*)",
+      "Bash(powershell -Command \"Get-Command node -ErrorAction SilentlyContinue | Select-Object Source; Get-Command npm -ErrorAction SilentlyContinue | Select-Object Source\")",
+      "Bash(gh run:*)",
+      "Bash(git push:*)",
+      "Bash(cmd /c \"npm install firebase --prefix \"\"e:\\\\Codigo\\\\MuleMode\"\"\")",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:cdn.jsdelivr.net)"
+    ]
+  }
+}
