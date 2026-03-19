@@ -310,7 +310,45 @@ const OBJETIVOS = [
 function buildPromptDesdeObjetivo() {
   const obj = OBJETIVOS.find(o => o.id === objetivoSeleccionado.value)
   if (!obj) return ''
-  return `${diasSeleccionados.value} rutinas para la semana — objetivo: ${obj.nombre} (${obj.sub}). ${obj.instrucciones}`
+  return `${diasSeleccionados.value} rutinas para la semana. Objetivo: ${obj.nombre} — ${obj.desc}.`
+}
+
+function getReglasObjetivo(id) {
+  const reglas = {
+    carga: `REGLAS DEL OBJETIVO — FUERZA TOTAL:
+- Separar tren superior e inferior: nunca mezclar patrones de sentadilla o bisagra de cadera con press horizontal o jale horizontal en el mismo día
+- Rangos de fuerza estrictos: 3-5 reps en el movimiento principal, hasta 6 en complementos — sin excepciones
+- Máximo 1 ejercicio de aislamiento por día; el resto deben ser compuestos multiarticulares
+- Cada día debe tener un movimiento principal claro como núcleo de la sesión: sentadilla, peso muerto o press — todo lo demás gira alrededor de él
+- Si el usuario tiene equipo para cargar un patrón de movimiento, NUNCA usar la versión de peso corporal`,
+
+    petacona: `REGLAS DEL OBJETIVO — PIERNAS Y GLÚTEOS:
+- Máximo 2 días de tren inferior por semana independientemente de los días seleccionados; los días restantes son tren superior (no mezclar en el mismo día)
+- Cada día de pierna debe incluir obligatoriamente: un patrón de sentadilla + un patrón de extensión de cadera (hip thrust o puente) + un patrón de bisagra — variar la combinación entre los días para no repetir patrones idénticos
+- Rangos: 8-12 reps en compuestos, 12-15 reps en aislamiento
+- Si el usuario tiene equipo para agregar carga a un ejercicio de pierna, SIEMPRE usar la versión cargada — nunca peso corporal cuando hay alternativa con carga disponible`,
+
+    agil: `REGLAS DEL OBJETIVO — CUERPO ATLÉTICO FUNCIONAL:
+- Cada día debe incluir exactamente: un patrón de empuje + un patrón de jale + un patrón de bisagra o sentadilla — sin excepciones
+- Priorizar movimientos multiarticulares que activen cadenas completas y requieran estabilización de core; minimizar ejercicios de aislamiento
+- Nombres de rutinas: descriptivos del contenido de la sesión — NUNCA "Rutina 1", "Día 1" o nombres genéricos; usar nombres como "Empuje y Bisagra", "Jale y Sentadilla", "Fuerza Total A"
+- Rangos: 8-12 reps en compuestos principales, 10-15 en complementarios`,
+
+    imponente: `REGLAS DEL OBJETIVO — TREN SUPERIOR POTENTE:
+- Máximo 1 ejercicio de tríceps aislado por día; el volumen adicional de tríceps viene de los movimientos de press
+- Máximo 1 ejercicio de bíceps aislado por día
+- Priorizar elevaciones laterales sobre elevaciones frontales para generar ancho de hombro
+- Incluir siempre al menos un ejercicio de hombro posterior o rotador externo por sesión de tren superior (face pull, remo al mentón, pájaro, rotación externa) para balance articular
+- Días de tren inferior: mantenimiento únicamente — máximo 3 ejercicios de pierna, rangos de 10-12 reps, sin énfasis en fuerza ni volumen`,
+
+    fina: `REGLAS DEL OBJETIVO — DEFINICIÓN Y RECOMPOSICIÓN:
+- Priorizar variantes metabólicas de los patrones clásicos según el equipo disponible del usuario: peso muerto rumano sobre convencional, sentadilla goblet sobre trasera, clean and press sobre press aislado, remo con pausa sobre remo estricto
+- Incluir en el campo "desc" de cada rutina: "Descanso: 45-60 seg entre series"
+- Incluir al menos un par de ejercicios en superset por día — marcarlos en el nombre del ejercicio como "(A1)" y "(A2)" respectivamente
+- Rangos obligatorios: 12-15 reps en todos los ejercicios — NUNCA bajar de 10
+- Evitar los movimientos principales pesados de fuerza (sentadilla trasera, peso muerto convencional cargado al máximo, press pesado); buscar variantes que generen más demanda metabólica y tiempo bajo tensión`,
+  }
+  return reglas[id] || ''
 }
 
 function handleGenerar() {
@@ -348,9 +386,9 @@ function buildEquipoContext() {
   const customIds  = customs.map(e => e.id).join('|')
   const equipoEnum = `kb|sb|bb|db|bw|band|trx${customIds ? '|' + customIds : ''}|`
 
-  // Mapping note for custom IDs so the AI understands them
+  // Mapping: IDs go in the "equipo" JSON field only — exercise names always use the readable label
   const customMap = customs.length
-    ? `\nEquipo personalizado: ${customs.map(e => `${e.id}=${e.label}`).join(', ')}`
+    ? `\nEquipo personalizado (el ID va SOLO en el campo JSON "equipo", NUNCA en el nombre del ejercicio): ${customs.map(e => `${e.id} = "${e.label}"`).join(', ')}`
     : ''
 
   return { lista, equipoEnum, customMap }
@@ -371,25 +409,33 @@ function buildPlanPrompt() {
     memoria ? `- Notas del atleta:\n${memoria}` : null,
   ].filter(Boolean).join('\n')
 
+  const reglasObjetivo = !modoAvanzado.value && objetivoSeleccionado.value
+    ? '\n\n' + getReglasObjetivo(objetivoSeleccionado.value)
+    : ''
+
   return `Eres un entrenador que conoce bien a este atleta — directo, sin rodeos, sin suavizar problemas reales. No como un asistente corporativo.
 
 PERFIL DEL ATLETA:
 ${perfil}
 
 SOLICITUD:
-${prompt.value.trim()}
+${prompt.value.trim()}${reglasObjetivo}
 
 Responde SOLO con este JSON (sin markdown, sin texto extra):
-{"rutinas":[{"nombre":"string","desc":"string (músculos principales, muy corto — si hay advertencia por solicitud subóptima o lesiva, prefija con ⚠️ )","ejercicios":[{"nombre":"string","series":3,"reps":"string","equipo":"${equipoEnum}","tipoMedida":"reps|time|dist","descansoRecomendado":90}]}]}
+{"rutinas":[{"nombre":"string","desc":"string","ejercicios":[{"nombre":"string","series":3,"reps":"string","equipo":"${equipoEnum}","tipoMedida":"reps|time|dist","descansoRecomendado":90}]}]}
 
-Reglas:
+REGLAS GLOBALES (aplican siempre):
 - Mínimo 4 ejercicios, máximo 7 por rutina
+- EQUIPO: elegir el implemento correcto para cada patrón de movimiento basándose exclusivamente en el equipo disponible del perfil. NUNCA sugerir un implemento que el usuario no tiene. Si hay múltiples opciones para un patrón, elegir la más adecuada para el objetivo
+- Si el usuario tiene equipo para cargar un patrón, NUNCA usar la versión de peso corporal cuando existe una alternativa con carga disponible
+- Nunca generar rutinas de "descanso" o "día libre" — solo generar los días de entrenamiento reales
+- El campo "nombre" del ejercicio usa SIEMPRE el nombre legible del implemento (ej: "Hip thrust con landmine") — NUNCA incluir IDs de equipo (cx_..., kb, sb, etc.) en el nombre del ejercicio
+- El campo "equipo" del JSON usa el código ID correspondiente (kb, bb, cx_..., etc.) — ese es el único lugar donde van los IDs
 - PRIORIDAD: si la SOLICITUD menciona equipo específico, úsalo aunque no esté en el perfil
-- Si la solicitud no especifica equipo, usa el equipo disponible del perfil
 - tipoMedida: "time" para isométricos/planchas, "dist" para carries, "reps" para todo lo demás
 - descansoRecomendado: 60-90 para fuerza, 30-60 para metcon
 - Respeta lesiones o limitaciones del perfil
-- Nunca valides algo incorrecto por quedar bien. Si la solicitud incluye algo subóptimo, potencialmente lesivo o incompatible con el perfil, indícalo en el campo "desc" de la rutina afectada antes de los músculos, prefijado con "⚠️ ".
+- Advertencia ⚠️ en "desc": SOLO si hay algo específicamente problemático para este usuario — lesión conocida incompatible con un ejercicio, volumen excesivo real o equipo incompatible. Si no hay nada concreto, no generar advertencia
 - Prohibido en cualquier campo de texto: "¡Claro!", "¡Por supuesto!", "Recuerda que", "Asegúrate de", "Es importante que", "No olvides que", "¡Excelente!", "¡Perfecto!"
 - Solo el JSON, nada más`
 }
