@@ -255,20 +255,37 @@ function cerrar() {
   planNombre.value = ''
 }
 
+// ── Helper: equipo context para prompts ───────────────────────
+function buildEquipoContext() {
+  const customs = store.equipoCustom || []
+  const stdLabels    = store.equipoPreferido.map(e => EQUIPO_LABELS_ES[e] || e)
+  const customLabels = customs.map(e => e.label)
+  const lista        = [...stdLabels, ...customLabels].join(', ') || 'kettlebell y sandbag'
+
+  // Dynamic enum includes custom IDs so the AI can reference them
+  const customIds  = customs.map(e => e.id).join('|')
+  const equipoEnum = `kb|sb|bb|db|bw|band|trx${customIds ? '|' + customIds : ''}|`
+
+  // Mapping note for custom IDs so the AI understands them
+  const customMap = customs.length
+    ? `\nEquipo personalizado: ${customs.map(e => `${e.id}=${e.label}`).join(', ')}`
+    : ''
+
+  return { lista, equipoEnum, customMap }
+}
+
 // ── Generar plan inicial ───────────────────────────────────────
 function buildPlanPrompt() {
   const genero  = store.genero || null
   const peso    = store.peso   ? `${store.peso} kg`   : null
   const altura  = store.altura ? `${store.altura} cm` : null
-  const equipoStd    = store.equipoPreferido.map(e => EQUIPO_LABELS_ES[e] || e)
-  const equipoCustom = (store.equipoCustom || []).map(e => e.label)
-  const equipo       = [...equipoStd, ...equipoCustom].join(', ') || 'kettlebell y sandbag'
+  const { lista, equipoEnum, customMap } = buildEquipoContext()
   const memoria = store.memoriaEntrenador
 
   const perfil = [
     genero  ? `- Género: ${genero}` : null,
     (peso || altura) ? `- Físico: ${[peso, altura].filter(Boolean).join(', ')}` : null,
-    `- Equipo disponible/preferido: ${equipo}`,
+    `- Equipo disponible: ${lista}${customMap}`,
     memoria ? `- Notas del atleta:\n${memoria}` : null,
   ].filter(Boolean).join('\n')
 
@@ -281,11 +298,12 @@ SOLICITUD:
 ${prompt.value.trim()}
 
 Responde SOLO con este JSON (sin markdown, sin texto extra):
-{"rutinas":[{"nombre":"string","desc":"string (músculos principales, muy corto)","ejercicios":[{"nombre":"string","series":3,"reps":"string","equipo":"kb|sb|bb|db|bw|band|trx|","tipoMedida":"reps|time|dist","descansoRecomendado":90}]}]}
+{"rutinas":[{"nombre":"string","desc":"string (músculos principales, muy corto)","ejercicios":[{"nombre":"string","series":3,"reps":"string","equipo":"${equipoEnum}","tipoMedida":"reps|time|dist","descansoRecomendado":90}]}]}
 
 Reglas:
 - Mínimo 4 ejercicios, máximo 7 por rutina
-- Adapta ejercicios al equipo preferido del atleta
+- PRIORIDAD: si la SOLICITUD menciona equipo específico, úsalo aunque no esté en el perfil
+- Si la solicitud no especifica equipo, usa el equipo disponible del perfil
 - tipoMedida: "time" para isométricos/planchas, "dist" para carries, "reps" para todo lo demás
 - descansoRecomendado: 60-90 para fuerza, 30-60 para metcon
 - Respeta lesiones o limitaciones del perfil
@@ -463,15 +481,13 @@ async function agregarAlPlan() {
   addingRutina.value = true
 
   const genero  = store.genero || null
-  const equipoStd    = store.equipoPreferido.map(e => EQUIPO_LABELS_ES[e] || e)
-  const equipoCustom = (store.equipoCustom || []).map(e => e.label)
-  const equipo       = [...equipoStd, ...equipoCustom].join(', ') || 'kettlebell y sandbag'
+  const { lista: equipo, equipoEnum, customMap } = buildEquipoContext()
   const memoria = store.memoriaEntrenador
 
   const perfil = [
     genero ? `Género: ${genero}` : null,
     store.peso || store.altura ? [store.peso ? store.peso+' kg':null, store.altura ? store.altura+' cm':null].filter(Boolean).join(', ') : null,
-    `Equipo: ${equipo}`,
+    `Equipo: ${equipo}${customMap}`,
     memoria ? `Notas: ${memoria}` : null,
   ].filter(Boolean).join(' | ')
 
@@ -488,9 +504,9 @@ SOLICITUD: ${addPrompt.value.trim()}
 
 Diseña UNA sola rutina nueva que complemente el plan sin repetir los mismos grupos musculares.
 Responde SOLO con este JSON (sin markdown, sin texto extra):
-{"nombre":"string","desc":"string","ejercicios":[{"nombre":"string","series":3,"reps":"string","equipo":"kb|sb|bb|db|bw|band|trx|","tipoMedida":"reps|time|dist","descansoRecomendado":90}]}
+{"nombre":"string","desc":"string","ejercicios":[{"nombre":"string","series":3,"reps":"string","equipo":"${equipoEnum}","tipoMedida":"reps|time|dist","descansoRecomendado":90}]}
 
-Mínimo 4 ejercicios, máximo 7. Solo el JSON, nada más.`
+Reglas: mínimo 4 ejercicios, máximo 7. PRIORIDAD: si la SOLICITUD menciona equipo específico, úsalo aunque no esté en el perfil. Solo el JSON, nada más.`
 
   try {
     const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
