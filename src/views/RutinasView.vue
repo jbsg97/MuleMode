@@ -350,17 +350,34 @@ function sugBadgeClass(tipo) {
   return { agregar: 'plan-sug-badge--agregar', quitar: 'plan-sug-badge--quitar', reemplazar: 'plan-sug-badge--reemplazar', nueva_rutina: 'plan-sug-badge--nueva' }[tipo] || ''
 }
 
+function buildEquipoParaPrompt() {
+  // Standard codes the user has selected
+  const stdCodes   = store.equipoPreferido.filter(e => EQUIPO_LABELS_ES[e])
+  const customItems = (store.equipoCustom || []).filter(c => store.equipoPreferido.includes(c.id))
+
+  const labels = [
+    ...stdCodes.map(e => EQUIPO_LABELS_ES[e]),
+    ...customItems.map(c => c.label),
+  ]
+  const codes = [
+    ...stdCodes,
+    ...customItems.map(c => c.id),
+  ]
+  return {
+    labels: labels.length ? labels.join(', ') : 'peso corporal',
+    codes:  codes.length  ? codes.join('|')   : 'bw',
+  }
+}
+
 function buildAnalysisPrompt(planId) {
   const plan    = store.planes.find(p => p.id === planId)
   const rutinas = rutinasDePlan(planId)
-  const equipo  = store.equipoPreferido.length
-    ? store.equipoPreferido.map(e => EQUIPO_LABELS_ES[e] || e).join(', ')
-    : 'kettlebell y sandbag'
+  const { labels: equipoLabels, codes: equipoCodes } = buildEquipoParaPrompt()
   const perfil  = [
     store.genero  ? `Género: ${store.genero}` : null,
     store.peso    ? `Peso: ${store.peso} kg`  : null,
     store.altura  ? `Altura: ${store.altura} cm` : null,
-    `Equipo preferido: ${equipo}`,
+    `Equipo disponible: ${equipoLabels}`,
     store.memoriaEntrenador ? `Notas: ${store.memoriaEntrenador}` : null,
   ].filter(Boolean).join(' | ')
 
@@ -418,7 +435,7 @@ Responde SOLO con este JSON (sin markdown, sin texto extra):
 {"resumen":"string (máximo 2 oraciones, directo y honesto — sin lenguaje corporativo, si el plan tiene problemas reales dilo, si está bien dilo igual de claro)","sugerencias":[...]}
 
 Cada sugerencia es UNO de estos formatos:
-- Modificar ejercicio: {"rutina_id":"id exacto","tipo":"agregar|quitar|reemplazar","ejercicio_nombre":"nombre exacto (solo quitar/reemplazar)","ejercicio_nuevo":{"nombre":"string","series":3,"reps":"string","equipo":"kb|sb|bb|db|bw|band|trx|","tipoMedida":"reps|time|dist","descansoRecomendado":90},"razon":"1 línea"}
+- Modificar ejercicio: {"rutina_id":"id exacto","tipo":"agregar|quitar|reemplazar","ejercicio_nombre":"nombre exacto (solo quitar/reemplazar)","ejercicio_nuevo":{"nombre":"string","series":3,"reps":"string","equipo":"${equipoCodes}","tipoMedida":"reps|time|dist","descansoRecomendado":90},"razon":"1 línea"}
 - Nueva rutina (solo si falta región corporal completa): {"tipo":"nueva_rutina","nombre_rutina":"string","musculos_objetivo":["muscle_id"],"razon":"1 línea"}
 
 Reglas estrictas:
@@ -427,7 +444,7 @@ Reglas estrictas:
 - Si el plan está completo y equilibrado, devuelve "sugerencias": [] y explícalo en el resumen sin rodeos
 - "nueva_rutina" PROHIBIDO si el plan ya tiene ${diasSemana} o más rutinas, o si hay rutinas que ya cubren esa región por nombre
 - Muscle IDs válidos: ${VALID_MUSCLES.join(', ')}
-- Usa el equipo preferido del atleta
+- EQUIPO PROHIBIDO: solo puedes usar "${equipoLabels}". Cualquier ejercicio que requiera otro equipo está PROHIBIDO, aunque sea más óptimo. El campo "equipo" del JSON solo puede contener uno de estos códigos: ${equipoCodes}
 - Prohibido en "resumen" y "razon": "¡Claro!", "¡Por supuesto!", "Recuerda que", "Asegúrate de", "Es importante que", "No olvides que", "¡Excelente!", "¡Perfecto!"
 - Solo el JSON, nada más`
 }
@@ -526,9 +543,7 @@ function pushHistorial(planId, entrada) {
 
 async function aplicarNuevaRutina(planId, sug) {
   const plan    = store.planes.find(p => p.id === planId)
-  const equipo  = store.equipoPreferido.length
-    ? store.equipoPreferido.map(e => EQUIPO_LABELS_ES[e] || e).join(', ')
-    : 'kettlebell y sandbag'
+  const { labels: equipoLabels, codes: equipoCodes } = buildEquipoParaPrompt()
   const planResumenTxt = rutinasDePlan(planId)
     .map(r => `${r.nombre}: ${r.ejercicios.map(e => e.nombre).join(', ')}`)
     .join('\n')
@@ -550,16 +565,17 @@ ${planResumenTxt}
 MÚSCULOS YA CUBIERTOS EN EL PLAN: ${musculosCubiertos}
 MÚSCULOS OBJETIVO DE LA NUEVA RUTINA: ${musculosTxt}
 NOMBRE DE LA RUTINA: ${sug.nombre_rutina}
-EQUIPO: ${equipo}
+EQUIPO DISPONIBLE (único equipo permitido): ${equipoLabels}
 ${store.genero ? `GÉNERO: ${store.genero}` : ''}
 ${store.memoriaEntrenador ? `NOTAS DEL ATLETA: ${store.memoriaEntrenador}` : ''}
 
 Diseña UNA rutina enfocada en los músculos objetivo. No repitas ejercicios ya presentes en el plan ni patrones de movimiento que ya estén cubiertos.
 
 Responde SOLO con este JSON (sin markdown):
-{"nombre":"string","desc":"string","ejercicios":[{"nombre":"string","series":3,"reps":"string","equipo":"kb|sb|bb|db|bw|band|trx|","tipoMedida":"reps|time|dist","descansoRecomendado":90}]}
+{"nombre":"string","desc":"string","ejercicios":[{"nombre":"string","series":3,"reps":"string","equipo":"${equipoCodes}","tipoMedida":"reps|time|dist","descansoRecomendado":90}]}
 
 Reglas: mínimo 4 ejercicios, máximo 6.
+PROHIBIDO usar equipo que no sea: ${equipoLabels}. El campo "equipo" solo puede contener uno de: ${equipoCodes}
 Nunca valides algo incorrecto por quedar bien. Si los músculos objetivo ya están bien cubiertos por el plan existente, refléjalo en el "desc".
 Prohibido en "nombre" y "desc": "¡Claro!", "¡Por supuesto!", "Recuerda que", "Asegúrate de", "Es importante que", "No olvides que", "¡Excelente!", "¡Perfecto!"
 Solo el JSON, nada más.`
