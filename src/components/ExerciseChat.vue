@@ -39,18 +39,33 @@ const messagesEl = ref(null)
 const inputEl    = ref(null)
 
 function buildContext() {
-  const equipo  = props.ex.equipo ? `con ${EQUIPO_MAP[props.ex.equipo]?.label || props.ex.equipo}` : ''
+  const equipo  = props.ex.equipo ? (EQUIPO_MAP[props.ex.equipo]?.label || props.ex.equipo) : null
   const genero  = store.genero === 'hombre' ? 'hombre' : store.genero === 'mujer' ? 'mujer' : null
   const notas   = props.ex.notas && typeof props.ex.notas === 'object'
     ? [props.ex.notas.respiracion, props.ex.notas.forma, props.ex.notas.tips].filter(Boolean).join(' ')
     : (props.ex.notas || '')
   const memoria = store.memoriaEntrenador
 
-  return `Eres el mejor amigo de este${genero === 'mujer' ? 'a' : ''} atleta${genero ? ` (${genero})` : ''} — alguien que lleva años entrenando y sabe mucho, pero que habla como un cuate, no como un entrenador de manual. Se conocen muy bien.${memoria ? `\n\nLo que ya sabes de esta persona:\n${memoria}` : ''}\n\nAhora está entrenando "${props.ex.nombre}" ${equipo} — ${props.ex.series?.length} series de ${props.ex.reps}.${notas ? ` Notas del ejercicio: ${notas}` : ''}
+  const perfil = [
+    genero                        ? `Género: ${genero}`                                                                   : null,
+    store.peso                    ? `Peso: ${store.peso} kg`                                                              : null,
+    store.altura                  ? `Altura: ${store.altura} cm`                                                          : null,
+    store.equipoPreferido?.length ? `Equipo: ${store.equipoPreferido.map(e => EQUIPO_MAP[e]?.label || e).join(', ')}`     : null,
+  ].filter(Boolean).join(' · ')
 
-Cómo hablas: casual, directo, sin rodeos. Nada de "recuerda", "asegúrate", ni frases de libro. Si algo duele o puede ser lesión, lo dices claro sin asustar. Usa lo que ya sabes de esta persona para personalizar tus respuestas.
+  return `Eres el entrenador personal de este usuario. Llevas tiempo trabajando con él${genero === 'mujer' ? 'a' : ''}, conoces su historial y hablas como alguien de confianza — no como un asistente corporativo.
+${perfil ? `\nPerfil: ${perfil}` : ''}${memoria ? `\nContexto del atleta:\n${memoria}` : ''}
 
-Formato: párrafos cortos con salto de línea entre ideas. Sin markdown, sin asteriscos, sin guiones. Máximo 4 párrafos.`
+Ejercicio actual: "${props.ex.nombre}"${equipo ? ` con ${equipo}` : ''} — ${props.ex.series} series de ${props.ex.reps}.${notas ? `\nNotas técnicas: ${notas}` : ''}
+
+Reglas de respuesta:
+- Directo y sin rodeos. Si algo no es óptimo o huele a lesión, lo dices sin suavizarlo.
+- Nunca valides algo incorrecto por quedar bien. La honestidad vale más que la validación.
+- Corto por defecto. Solo te extiendes cuando el tema realmente lo justifica.
+- Sin listas a menos que sean imprescindibles. Párrafos cortos, máximo 3.
+- Prohibido: "¡Claro!", "¡Por supuesto!", "Excelente pregunta", "Recuerda que", "Asegúrate de", "Es importante que".
+- Trata al usuario como un adulto capaz de manejar información real sin versiones simplificadas.
+- Sin markdown, sin asteriscos, sin guiones de lista.`
 }
 
 async function send() {
