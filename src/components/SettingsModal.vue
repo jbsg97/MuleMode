@@ -102,19 +102,19 @@
         </div>
       </div>
 
-      <!-- Groq API Key -->
+      <!-- Anthropic API Key -->
       <div style="margin-bottom:24px;border-top:1px solid var(--border);padding-top:16px">
-        <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:4px">🤖 Groq API Key</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:4px">🤖 Claude API Key</div>
         <div style="font-size:12px;color:var(--text3);margin-bottom:10px;line-height:1.5">
           Genera músculos, notas de técnica y búsqueda de videos con IA.<br>
           Tu key se guarda en tu cuenta y nunca se comparte.<br><br>
-          <strong style="color:var(--text2)">Cómo obtenerla gratis:</strong><br>
-          1. Ve a <span style="color:var(--accent)">console.groq.com</span><br>
-          2. Inicia sesión con Google<br>
-          3. Clic en <em>"API Keys"</em> → <em>"Create API key"</em><br>
-          4. Copia la key (empieza con <em>gsk_</em>) y pégala aquí
+          <strong style="color:var(--text2)">Cómo obtenerla:</strong><br>
+          1. Ve a <span style="color:var(--accent)">console.anthropic.com</span><br>
+          2. Inicia sesión o crea una cuenta<br>
+          3. Clic en <em>"API Keys"</em> → <em>"Create Key"</em><br>
+          4. Copia la key (empieza con <em>sk-ant-</em>) y pégala aquí
         </div>
-        <input class="form-input" type="password" placeholder="gsk_..." v-model="keyInput"
+        <input class="form-input" type="password" placeholder="sk-ant-..." v-model="keyInput"
           style="font-family:monospace;font-size:13px">
         <div v-if="store.geminiKey" style="font-size:11px;color:#44cc88;margin-top:6px">
           ✓ Key guardada — IA activa

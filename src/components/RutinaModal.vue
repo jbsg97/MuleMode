@@ -157,6 +157,7 @@
 import { ref, watch } from 'vue'
 import { useStore, MUSCLE_LABELS } from '../store/index.js'
 import MuscleMap from './MuscleMap.vue'
+import { callClaude } from '../utils/claude.js'
 
 const VALID_MUSCLES = ['chest','obliques','abs','biceps','triceps','front-deltoids',
   'abductors','quadriceps','calves','forearm','trapezius','upper-back','lower-back',
@@ -217,19 +218,10 @@ For musculos use ONLY: ${VALID_MUSCLES.join(', ')}. Primary >60% MVC, secondary 
 
   ex._generating = true
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0,
-        max_tokens: 900,
-      }),
-    })
-    const data = await res.json()
-    const text = data?.choices?.[0]?.message?.content || ''
-    const raw = text.replace(/```json?|```/g, '').trim()
+    const raw = (await callClaude(key, {
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 900,
+    })).replace(/```json?|```/g, '').trim()
 
     let json
     try {

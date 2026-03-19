@@ -27,6 +27,7 @@
 <script setup>
 import { ref, nextTick } from 'vue'
 import { useStore, EQUIPO_MAP } from '../store/index.js'
+import { callClaude } from '../utils/claude.js'
 
 const props = defineProps({ ex: Object })
 
@@ -64,22 +65,15 @@ async function send() {
   const history = messages.value.slice(-8).map(m => ({ role: m.role, content: m.content }))
 
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${store.geminiKey}` },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'system', content: buildContext() }, ...history],
-        temperature: 0.7,
-        max_tokens: 300,
-      }),
+    const reply = await callClaude(store.geminiKey, {
+      system: buildContext(),
+      messages: history,
+      max_tokens: 300,
     })
-    const data = await res.json()
-    const reply = data?.choices?.[0]?.message?.content || 'No pude responder, intenta de nuevo.'
-    messages.value.push({ role: 'assistant', content: reply })
+    messages.value.push({ role: 'assistant', content: reply || 'No pude responder, intenta de nuevo.' })
     extraerMemoria(text, reply)
   } catch {
-    messages.value.push({ role: 'assistant', content: 'Error de conexión. Revisa tu key de Groq.' })
+    messages.value.push({ role: 'assistant', content: 'Error de conexión. Revisa tu API key de Claude.' })
   }
 
   loading.value = false
@@ -107,17 +101,10 @@ Entrenador: ${coachReply}
 Extrae ÚNICAMENTE hechos nuevos no presentes en la memoria: lesiones, molestias, puntos débiles, metas, equipo, nivel, preferencias. Si hay nueva info, devuelve solo las líneas nuevas como "- [hecho] (${new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })})". Si no hay nada nuevo, responde exactamente: NADA`
 
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-      body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0, max_tokens: 200,
-      }),
-    })
-    const data = await res.json()
-    const nuevos = (data?.choices?.[0]?.message?.content || '').trim()
+    const nuevos = (await callClaude(key, {
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 200,
+    })).trim()
     if (nuevos && nuevos !== 'NADA') {
       store.memoriaEntrenador = [memoriaActual, nuevos].filter(Boolean).join('\n')
       store.save()

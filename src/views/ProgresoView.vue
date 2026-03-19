@@ -206,6 +206,7 @@ import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import Chart from 'chart.js/auto'
 import { useStore } from '../store/index.js'
 import MuscleMap from '../components/MuscleMap.vue'
+import { callClaude } from '../utils/claude.js'
 
 const store = useStore()
 const selectedEx = ref('')
@@ -467,13 +468,10 @@ Write all text fields in Spanish, casual tone. No "recuerda", no "asegúrate". D
 For musculos use ONLY: ${VALID_MUSCLES.join(', ')}. Primary >60% MVC, secondary 30-60%, tertiary <30%.`
 
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], temperature: 0, max_tokens: 600 }),
-    })
-    const data = await res.json()
-    let raw = (data?.choices?.[0]?.message?.content || '').replace(/```json?|```/g, '').trim()
+    let raw = (await callClaude(key, {
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 600,
+    })).replace(/```json?|```/g, '').trim()
     const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
       s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
     const json = JSON.parse(sanitized)
@@ -599,20 +597,10 @@ Reglas:
 - Solo devuelve el JSON, nada más.`
 
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${store.geminiKey}` },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.4,
-        max_tokens: 600,
-      }),
-    })
-    const data = await res.json()
-    let raw = data?.choices?.[0]?.message?.content || ''
-    // Strip markdown code block if present
-    raw = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
+    let raw = (await callClaude(store.geminiKey, {
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 600,
+    })).replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim()
     const parsed = JSON.parse(raw)
     aiAnalysis.value = {
       gaps: Array.isArray(parsed.gaps) ? parsed.gaps : [],

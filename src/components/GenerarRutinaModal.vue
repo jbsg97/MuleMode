@@ -205,19 +205,11 @@
 <script setup>
 import { ref, reactive, nextTick } from 'vue'
 import { useStore, EQUIPO_MAP, MUSCLE_LABELS } from '../store/index.js'
+import { callClaude, checkClaudeError } from '../utils/claude.js'
 
 const store = useStore()
 
-function checkGroqError(data) {
-  if (!data?.error) return
-  const { code, type, message } = data.error
-  if (code === 'rate_limit_exceeded' || type === 'tokens') {
-    const match = message?.match(/try again in ([^\\.]+)/i)
-    const espera = match ? ` Intenta de nuevo en ${match[1]}.` : ' Intenta más tarde.'
-    throw new Error(`límite_tokens:${espera}`)
-  }
-  throw new Error(message || 'Error desconocido de la API')
-}
+// checkGroqError replaced by checkClaudeError from utils/claude.js
 
 function groqErrorMsg(err) {
   if (err.message?.startsWith('límite_tokens:')) {
@@ -317,19 +309,10 @@ async function generar() {
   rutinasGeneradas.value = []
 
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${store.geminiKey}` },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: buildPlanPrompt() }],
-        temperature: 0.5,
-        max_tokens: 4000,
-      }),
-    })
-    const data = await res.json()
-    checkGroqError(data)
-    let raw = (data?.choices?.[0]?.message?.content || '').replace(/```json?|```/g, '').trim()
+    let raw = (await callClaude(store.geminiKey, {
+      messages: [{ role: 'user', content: buildPlanPrompt() }],
+      max_tokens: 4000,
+    })).replace(/```json?|```/g, '').trim()
     const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
       s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
     const json = JSON.parse(sanitized)
@@ -414,19 +397,11 @@ async function enviarMensaje(rutinaIdx) {
   const history = r._messages.slice(-10).map(m => ({ role: m.role, content: m.content }))
 
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${store.geminiKey}` },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'system', content: buildChatSystemPrompt(rutinaIdx) }, ...history],
-        temperature: 0.6,
-        max_tokens: 500,
-      }),
-    })
-    const data = await res.json()
-    checkGroqError(data)
-    let raw = (data?.choices?.[0]?.message?.content || '').replace(/```json?|```/g, '').trim()
+    let raw = (await callClaude(store.geminiKey, {
+      system: buildChatSystemPrompt(rutinaIdx),
+      messages: history,
+      max_tokens: 500,
+    })).replace(/```json?|```/g, '').trim()
     const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
       s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
 
@@ -442,10 +417,7 @@ async function enviarMensaje(rutinaIdx) {
 
     r._messages.push({ role: 'assistant', content: respuesta, acciones })
   } catch (err) {
-    const msg = err.message?.startsWith('límite_tokens:')
-      ? '⏳ Límite diario de tokens alcanzado.' + err.message.slice('límite_tokens:'.length)
-      : 'Error de conexión. Revisa tu key de Groq.'
-    r._messages.push({ role: 'assistant', content: msg, accion: null })
+    r._messages.push({ role: 'assistant', content: err.message || 'Error de conexión. Revisa tu API key de Claude.', accion: null })
   }
 
   r._chatLoading = false
@@ -509,18 +481,10 @@ Responde SOLO con este JSON (sin markdown, sin texto extra):
 Reglas: mínimo 4 ejercicios, máximo 7. PRIORIDAD: si la SOLICITUD menciona equipo específico, úsalo aunque no esté en el perfil. Solo el JSON, nada más.`
 
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${store.geminiKey}` },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: prompt_ia }],
-        temperature: 0.5,
-        max_tokens: 1500,
-      }),
-    })
-    const data = await res.json()
-    let raw = (data?.choices?.[0]?.message?.content || '').replace(/```json?|```/g, '').trim()
+    let raw = (await callClaude(store.geminiKey, {
+      messages: [{ role: 'user', content: prompt_ia }],
+      max_tokens: 1500,
+    })).replace(/```json?|```/g, '').trim()
     const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
       s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
     const json = JSON.parse(sanitized)
@@ -635,18 +599,10 @@ Respond ONLY with a JSON array (no markdown, no extra text):
 [{"nombre":"exact name as given","musculos_p":["muscle"],"musculos_s":["muscle"],"musculos_t":[],"respiracion":"one sentence when to inhale/exhale","forma":"2 sentences key technique points","tips":"1 sentence if they don't feel the target muscle","progresion":"1-2 sentences golden rule: when to add reps vs weight and by how much"}]`
 
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0,
-        max_tokens: 2000,
-      }),
-    })
-    const data = await res.json()
-    let raw = (data?.choices?.[0]?.message?.content || '').replace(/```json?|```/g, '').trim()
+    let raw = (await callClaude(key, {
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 2000,
+    })).replace(/```json?|```/g, '').trim()
     const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
       s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
     const resultados = JSON.parse(sanitized)

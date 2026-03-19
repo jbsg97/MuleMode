@@ -228,6 +228,7 @@ import { ref, computed, reactive, nextTick } from 'vue'
 import { useStore, MUSCLE_LABELS } from '../store/index.js'
 import MuscleMap from '../components/MuscleMap.vue'
 import RoutineCard from '../components/RoutineCard.vue'
+import { callClaude } from '../utils/claude.js'
 
 defineEmits(['settings'])
 
@@ -329,17 +330,7 @@ function planMuscles(planId) {
 // ── AI Plan Analysis ──────────────────────────────────────────
 const planAnalysis = reactive({})  // planId → { loading, resumen, sugerencias }
 
-// Shared Groq error handler — throws with a user-friendly message
-function checkGroqError(data) {
-  if (!data?.error) return
-  const { code, type, message } = data.error
-  if (code === 'rate_limit_exceeded' || type === 'tokens') {
-    const match = message?.match(/try again in ([^\\.]+)/i)
-    const espera = match ? ` Intenta de nuevo en ${match[1]}.` : ' Intenta más tarde.'
-    throw new Error(`límite_tokens:${espera}`)
-  }
-  throw new Error(message || 'Error desconocido de la API')
-}
+// checkGroqError replaced by callClaude from utils/claude.js
 
 function groqToast(err) {
   if (err.message?.startsWith('límite_tokens:')) {
@@ -459,19 +450,10 @@ async function analizarPlan(planId) {
   planAnalysis[planId].sugerencias = []
 
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${store.geminiKey}` },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: buildAnalysisPrompt(planId) }],
-        temperature: 0.4,
-        max_tokens: 1200,
-      }),
-    })
-    const data = await res.json()
-    checkGroqError(data)
-    let raw = (data?.choices?.[0]?.message?.content || '').replace(/```json?|```/g, '').trim()
+    let raw = (await callClaude(store.geminiKey, {
+      messages: [{ role: 'user', content: buildAnalysisPrompt(planId) }],
+      max_tokens: 1200,
+    })).replace(/```json?|```/g, '').trim()
     const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
       s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
     const json = JSON.parse(sanitized)
@@ -570,18 +552,10 @@ Responde SOLO con este JSON (sin markdown):
 Mínimo 4 ejercicios, máximo 6. Solo el JSON.`
 
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${store.geminiKey}` },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [{ role: 'user', content: promptIA }],
-        temperature: 0.5,
-        max_tokens: 1500,
-      }),
-    })
-    const data = await res.json()
-    let raw = (data?.choices?.[0]?.message?.content || '').replace(/```json?|```/g, '').trim()
+    let raw = (await callClaude(store.geminiKey, {
+      messages: [{ role: 'user', content: promptIA }],
+      max_tokens: 1500,
+    })).replace(/```json?|```/g, '').trim()
     const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
       s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
     const json = JSON.parse(sanitized)
@@ -632,13 +606,10 @@ Respond ONLY with a JSON array (no markdown):
 [{"nombre":"exact name","musculos_p":["id"],"musculos_s":["id"],"musculos_t":[],"respiracion":"1 sentence","forma":"2 sentences technique","tips":"1 sentence if they don't feel it","progresion":"1-2 sentences golden rule: when to add reps vs weight and by how much"}]`
 
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], temperature: 0, max_tokens: 2000 }),
-    })
-    const data = await res.json()
-    let raw = (data?.choices?.[0]?.message?.content || '').replace(/```json?|```/g, '').trim()
+    let raw = (await callClaude(key, {
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 2000,
+    })).replace(/```json?|```/g, '').trim()
     const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
       s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
     const resultados = JSON.parse(sanitized)
@@ -678,13 +649,10 @@ All text in Spanish, casual tone. No "recuerda", no "asegúrate".
 Valid muscle IDs: ${VALID_MUSCLES.join(', ')}. Primary >60% MVC, secondary 30-60%, tertiary <30%.`
 
   try {
-    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
-      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: [{ role: 'user', content: prompt }], temperature: 0, max_tokens: 500 }),
-    })
-    const data = await res.json()
-    let raw = (data?.choices?.[0]?.message?.content || '').replace(/```json?|```/g, '').trim()
+    let raw = (await callClaude(key, {
+      messages: [{ role: 'user', content: prompt }],
+      max_tokens: 500,
+    })).replace(/```json?|```/g, '').trim()
     const sanitized = raw.replace(/("(?:[^"\\]|\\[\s\S])*")/g, s =>
       s.replace(/\n/g, '\\n').replace(/\r/g, '').replace(/\t/g, ' '))
     const json = JSON.parse(sanitized)
