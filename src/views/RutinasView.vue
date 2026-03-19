@@ -402,7 +402,7 @@ function buildAnalysisPrompt(planId) {
     ? `El plan ya tiene ${numRutinas} rutinas y cubre los principales grupos musculares. Enfócate en CALIDAD: balance push/pull, volumen por grupo, ejercicios redundantes o poco eficientes. NO sugieras más rutinas. Sé conservador — si el plan está bien, dilo.`
     : `El plan está incompleto. Identifica grupos musculares principales ausentes y sugiere cómo completarlo.`
 
-  return `Eres un coach de fuerza. Analiza este plan de entrenamiento.
+  return `Eres un coach de fuerza que conoce bien a este atleta — hablas directo, sin rodeos, sin suavizar problemas reales. No como un asistente corporativo.
 
 PLAN: ${plan?.nombre}
 PERFIL: ${perfil}
@@ -415,7 +415,7 @@ ${historialTxt}
 MODO DE ANÁLISIS: ${modoAnalisis}
 
 Responde SOLO con este JSON (sin markdown, sin texto extra):
-{"resumen":"string (2-3 líneas, casual, directo — si el plan está bien dilo claramente)","sugerencias":[...]}
+{"resumen":"string (máximo 2 oraciones, directo y honesto — sin lenguaje corporativo, si el plan tiene problemas reales dilo, si está bien dilo igual de claro)","sugerencias":[...]}
 
 Cada sugerencia es UNO de estos formatos:
 - Modificar ejercicio: {"rutina_id":"id exacto","tipo":"agregar|quitar|reemplazar","ejercicio_nombre":"nombre exacto (solo quitar/reemplazar)","ejercicio_nuevo":{"nombre":"string","series":3,"reps":"string","equipo":"kb|sb|bb|db|bw|band|trx|","tipoMedida":"reps|time|dist","descansoRecomendado":90},"razon":"1 línea"}
@@ -423,10 +423,12 @@ Cada sugerencia es UNO de estos formatos:
 
 Reglas estrictas:
 - Máximo 3 sugerencias, solo las más impactantes
-- Si el plan está completo y equilibrado, devuelve "sugerencias": [] y explícalo en el resumen
+- Nunca valides algo incorrecto por quedar bien. Si algo es subóptimo, desequilibrado o potencialmente lesivo, dilo en el "resumen" y en la "razon" del cambio sugerido.
+- Si el plan está completo y equilibrado, devuelve "sugerencias": [] y explícalo en el resumen sin rodeos
 - "nueva_rutina" PROHIBIDO si el plan ya tiene ${diasSemana} o más rutinas, o si hay rutinas que ya cubren esa región por nombre
 - Muscle IDs válidos: ${VALID_MUSCLES.join(', ')}
 - Usa el equipo preferido del atleta
+- Prohibido en "resumen" y "razon": "¡Claro!", "¡Por supuesto!", "Recuerda que", "Asegúrate de", "Es importante que", "No olvides que", "¡Excelente!", "¡Perfecto!"
 - Solo el JSON, nada más`
 }
 
@@ -532,24 +534,35 @@ async function aplicarNuevaRutina(planId, sug) {
     .join('\n')
   const musculosTxt = (sug.musculos_objetivo || [])
     .map(m => MUSCLE_LABELS[m] || m).join(', ')
+  const musculosCubiertos = [...new Set(
+    rutinasDePlan(planId).flatMap(r =>
+      r.ejercicios.flatMap(e =>
+        (e.musculos || []).map(m => MUSCLE_LABELS[typeof m === 'string' ? m : m.muscle] || (typeof m === 'string' ? m : m.muscle))
+      )
+    )
+  )].join(', ') || 'sin datos aún'
 
-  const promptIA = `Eres un entrenador experto. El atleta tiene este plan y necesita una rutina nueva para completarlo.
+  const promptIA = `Eres un entrenador que conoce bien a este atleta — directo, sin rodeos, sin suavizar problemas reales. No como un asistente corporativo.
 
 PLAN ACTUAL "${plan?.nombre}":
 ${planResumenTxt}
 
-MÚSCULOS A TRABAJAR EN LA NUEVA RUTINA: ${musculosTxt}
+MÚSCULOS YA CUBIERTOS EN EL PLAN: ${musculosCubiertos}
+MÚSCULOS OBJETIVO DE LA NUEVA RUTINA: ${musculosTxt}
 NOMBRE DE LA RUTINA: ${sug.nombre_rutina}
 EQUIPO: ${equipo}
 ${store.genero ? `GÉNERO: ${store.genero}` : ''}
-${store.memoriaEntrenador ? `NOTAS: ${store.memoriaEntrenador}` : ''}
+${store.memoriaEntrenador ? `NOTAS DEL ATLETA: ${store.memoriaEntrenador}` : ''}
 
-Diseña UNA rutina enfocada en los músculos indicados, sin repetir los mismos ejercicios del plan.
+Diseña UNA rutina enfocada en los músculos objetivo. No repitas ejercicios ya presentes en el plan ni patrones de movimiento que ya estén cubiertos.
 
 Responde SOLO con este JSON (sin markdown):
 {"nombre":"string","desc":"string","ejercicios":[{"nombre":"string","series":3,"reps":"string","equipo":"kb|sb|bb|db|bw|band|trx|","tipoMedida":"reps|time|dist","descansoRecomendado":90}]}
 
-Mínimo 4 ejercicios, máximo 6. Solo el JSON.`
+Reglas: mínimo 4 ejercicios, máximo 6.
+Nunca valides algo incorrecto por quedar bien. Si los músculos objetivo ya están bien cubiertos por el plan existente, refléjalo en el "desc".
+Prohibido en "nombre" y "desc": "¡Claro!", "¡Por supuesto!", "Recuerda que", "Asegúrate de", "Es importante que", "No olvides que", "¡Excelente!", "¡Perfecto!"
+Solo el JSON, nada más.`
 
   try {
     let raw = (await callClaude(store.geminiKey, {

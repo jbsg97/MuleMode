@@ -570,7 +570,7 @@ async function analizarSemana() {
     ? `El atleta prefiere entrenar con: ${equipoPref.map(e => EQUIPO_NOMBRES[e] || e).join(', ')}. Prioriza estos equipos en las sugerencias de ejercicios.`
     : 'El atleta usa kettlebell y sandbag.'
 
-  const prompt = `Eres un entrenador experto analizando la semana de entrenamiento de un atleta${genero ? ` (${genero})` : ''}.${memoria ? `\n\nLo que sabes del atleta:\n${memoria}` : ''}
+  const prompt = `Eres un entrenador que conoce bien a este atleta — directo, sin rodeos, sin suavizar problemas reales. No como un asistente corporativo.${genero ? ` Atleta: ${genero}.` : ''}${memoria ? `\n\nLo que sabes del atleta:\n${memoria}` : ''}
 
 ${equipoStr}
 
@@ -592,8 +592,9 @@ Analiza y responde SOLO con este JSON (sin markdown, sin texto extra):
 Reglas:
 - gaps: grupos musculares importantes NO trabajados esta semana (máx 4). Sugiere 2-3 ejercicios usando el equipo preferido del atleta.
 - redundancias: pares/grupos de ejercicios que trabajan los mismos músculos primarios (máx 3).
-- Si no hay gaps o redundancias, devuelve arrays vacíos.
-- Responde en español, tono casual y directo.
+- Si no hay gaps ni redundancias reales, devuelve arrays vacíos — no inventes problemas donde no los hay.
+- Nunca valides algo incorrecto por quedar bien. Si la semana está desequilibrada o hay sobreentrenamiento evidente, dilo directamente en las notas de redundancia o en el campo "musculo" de gaps.
+- Prohibido en cualquier campo de texto: "¡Claro!", "¡Por supuesto!", "Recuerda que", "Asegúrate de", "Es importante que", "No olvides que", "¡Excelente!", "¡Perfecto!"
 - Solo devuelve el JSON, nada más.`
 
   try {
