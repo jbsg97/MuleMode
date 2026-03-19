@@ -110,12 +110,14 @@
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div>
-            <label class="form-label">Tren superior (kg)</label>
+            <label class="form-label">Tren superior — total en barra (kg)</label>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Ej: 2.5kg total = +1.25kg c/lado</div>
             <input class="form-input" type="number" min="0.5" max="20" step="0.5" placeholder="2.5"
               v-model.number="incrementoSupInput">
           </div>
           <div>
-            <label class="form-label">Tren inferior (kg)</label>
+            <label class="form-label">Tren inferior — total en barra (kg)</label>
+            <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Ej: 5kg total = +2.5kg c/lado</div>
             <input class="form-input" type="number" min="1" max="20" step="1" placeholder="5"
               v-model.number="incrementoInfInput">
           </div>
