@@ -438,7 +438,7 @@ async function enviarMensaje(rutinaIdx) {
 
     r._messages.push({ role: 'assistant', content: respuesta, acciones })
   } catch (err) {
-    r._messages.push({ role: 'assistant', content: err.message || 'Error de conexión. Revisa tu API key de Claude.', accion: null })
+    r._messages.push({ role: 'assistant', content: err.message || 'Error de conexión. Revisa tu API key de Groq.', accion: null })
   }
 
   r._chatLoading = false

@@ -90,7 +90,7 @@ async function send() {
     messages.value.push({ role: 'assistant', content: reply || 'No pude responder, intenta de nuevo.' })
     extraerMemoria(text, reply)
   } catch {
-    messages.value.push({ role: 'assistant', content: 'Error de conexión. Revisa tu API key de Claude.' })
+    messages.value.push({ role: 'assistant', content: 'Error de conexión. Revisa tu API key de Groq.' })
   }
 
   loading.value = false
