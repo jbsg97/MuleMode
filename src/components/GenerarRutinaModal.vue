@@ -316,37 +316,41 @@ function buildPromptDesdeObjetivo() {
 function getReglasObjetivo(id) {
   const reglas = {
     carga: `REGLAS DEL OBJETIVO — FUERZA TOTAL:
-- Separar tren superior e inferior: nunca mezclar patrones de sentadilla o bisagra de cadera con press horizontal o jale horizontal en el mismo día
+- Separar tren superior e inferior: NUNCA mezclar patrones de sentadilla o bisagra de cadera con press horizontal o jale horizontal en el mismo día
+- Día de espalda: incluir siempre un jale vertical Y un jale horizontal — nunca solo uno de los dos
+- NUNCA poner dos ejercicios del mismo patrón en el mismo día (ej: si hay press de hombros con barra, no puede haber también press de hombros con polea en el mismo día)
 - Rangos de fuerza estrictos: 3-5 reps en el movimiento principal, hasta 6 en complementos — sin excepciones
 - Máximo 1 ejercicio de aislamiento por día; el resto deben ser compuestos multiarticulares
-- Cada día debe tener un movimiento principal claro como núcleo de la sesión: sentadilla, peso muerto o press — todo lo demás gira alrededor de él
-- Si el usuario tiene equipo para cargar un patrón de movimiento, NUNCA usar la versión de peso corporal`,
+- Cada día debe tener un movimiento principal claro como núcleo de la sesión: sentadilla, peso muerto o press — todo lo demás gira alrededor de él`,
 
     petacona: `REGLAS DEL OBJETIVO — PIERNAS Y GLÚTEOS:
-- Máximo 2 días de tren inferior por semana independientemente de los días seleccionados; los días restantes son tren superior (no mezclar en el mismo día)
-- Cada día de pierna debe incluir obligatoriamente: un patrón de sentadilla + un patrón de extensión de cadera (hip thrust o puente) + un patrón de bisagra — variar la combinación entre los días para no repetir patrones idénticos
-- Rangos: 8-12 reps en compuestos, 12-15 reps en aislamiento
-- Si el usuario tiene equipo para agregar carga a un ejercicio de pierna, SIEMPRE usar la versión cargada — nunca peso corporal cuando hay alternativa con carga disponible`,
+- CONTEO ESTRICTO: exactamente 2 días de tren inferior y el resto de tren superior — esto aplica para 2, 3, 4 o 5 días seleccionados sin excepción. Con 2 días: 2 de pierna. Con 3 días: 2 de pierna + 1 de tren superior. Con 4 días: 2 de pierna + 2 de tren superior. Con 5 días: 2 de pierna + 3 de tren superior. NUNCA más de 2 días de pierna
+- Cada día de pierna debe incluir obligatoriamente: un patrón de sentadilla + un patrón de extensión de cadera (hip thrust — nombrar SIEMPRE "Hip thrust", nunca "Elevación de cadera") + un patrón de bisagra — variar la combinación entre los días para no repetir patrones idénticos
+- Días de tren superior: incluir press, jale Y trabajo de hombro — nunca solo curl y tríceps
+- Rangos: 8-12 reps en compuestos, 12-15 reps en aislamiento`,
 
     agil: `REGLAS DEL OBJETIVO — CUERPO ATLÉTICO FUNCIONAL:
 - Cada día debe incluir exactamente: un patrón de empuje + un patrón de jale + un patrón de bisagra o sentadilla — sin excepciones
+- El enfoque del día determina el patrón principal: un día de jale NO puede tener ejercicios de empuje horizontal como movimiento principal, y viceversa
 - Priorizar movimientos multiarticulares que activen cadenas completas y requieran estabilización de core; minimizar ejercicios de aislamiento
-- Nombres de rutinas: descriptivos del contenido de la sesión — NUNCA "Rutina 1", "Día 1" o nombres genéricos; usar nombres como "Empuje y Bisagra", "Jale y Sentadilla", "Fuerza Total A"
+- Nombres de rutinas: descriptivos del contenido — NUNCA "Rutina 1", "Día 1", "Fuerza Total A" u otros genéricos. Si hay un solo día con un enfoque, el nombre no lleva letra (ej: "Empuje y Bisagra", no "Empuje y Bisagra A")
 - Rangos: 8-12 reps en compuestos principales, 10-15 en complementarios`,
 
     imponente: `REGLAS DEL OBJETIVO — TREN SUPERIOR POTENTE:
-- Máximo 1 ejercicio de tríceps aislado por día; el volumen adicional de tríceps viene de los movimientos de press
+- Los días de tren superior deben ser claramente distintos entre sí — si el Día 1 es espalda y hombros, el siguiente día de tren superior debe ser pecho y brazos o una combinación diferente; nunca el mismo enfoque dos veces
+- Máximo 1 ejercicio de tríceps aislado por día; el resto del volumen de tríceps viene de los presses
 - Máximo 1 ejercicio de bíceps aislado por día
-- Priorizar elevaciones laterales sobre elevaciones frontales para generar ancho de hombro
+- Priorizar elevaciones laterales sobre elevaciones frontales para generar ancho de hombro. NUNCA usar el nombre "Flexiones de hombros" — usar "Elevaciones frontales" o "Press de hombros" según corresponda
 - Incluir siempre al menos un ejercicio de hombro posterior o rotador externo por sesión de tren superior (face pull, remo al mentón, pájaro, rotación externa) para balance articular
-- Días de tren inferior: mantenimiento únicamente — máximo 3 ejercicios de pierna, rangos de 10-12 reps, sin énfasis en fuerza ni volumen`,
+- Días de tren inferior: mantenimiento únicamente — exactamente 2-3 ejercicios de pierna, rangos de 10-12 reps, sin mezclar brazos en el mismo día`,
 
     fina: `REGLAS DEL OBJETIVO — DEFINICIÓN Y RECOMPOSICIÓN:
-- Priorizar variantes metabólicas de los patrones clásicos según el equipo disponible del usuario: peso muerto rumano sobre convencional, sentadilla goblet sobre trasera, clean and press sobre press aislado, remo con pausa sobre remo estricto
-- Incluir en el campo "desc" de cada rutina: "Descanso: 45-60 seg entre series"
-- Incluir al menos un par de ejercicios en superset por día — marcarlos en el nombre del ejercicio como "(A1)" y "(A2)" respectivamente
+- Nombres de rutinas descriptivos del contenido — NUNCA "Día 1", "Día 2" u otros genéricos
+- Priorizar variantes metabólicas de los patrones clásicos según el equipo disponible: peso muerto rumano sobre convencional, sentadilla goblet sobre trasera, clean and press sobre press aislado, remo con pausa sobre remo estricto
+- Incluir en el campo "desc" de cada rutina al final: "Descanso: 45-60 seg entre series"
+- Incluir al menos un par de ejercicios en superset por día — marcarlos como "(A1)" y "(A2)" en el nombre. El superset debe ser de patrones complementarios: empuje con jale, o pierna con core — NUNCA dos ejercicios del mismo patrón en superset
 - Rangos obligatorios: 12-15 reps en todos los ejercicios — NUNCA bajar de 10
-- Evitar los movimientos principales pesados de fuerza (sentadilla trasera, peso muerto convencional cargado al máximo, press pesado); buscar variantes que generen más demanda metabólica y tiempo bajo tensión`,
+- Evitar los movimientos principales pesados de fuerza (sentadilla trasera, peso muerto convencional, press pesado); buscar variantes de mayor demanda metabólica y tiempo bajo tensión`,
   }
   return reglas[id] || ''
 }
@@ -426,16 +430,17 @@ Responde SOLO con este JSON (sin markdown, sin texto extra):
 
 REGLAS GLOBALES (aplican siempre):
 - Mínimo 4 ejercicios, máximo 7 por rutina
-- EQUIPO: elegir el implemento correcto para cada patrón de movimiento basándose exclusivamente en el equipo disponible del perfil. NUNCA sugerir un implemento que el usuario no tiene. Si hay múltiples opciones para un patrón, elegir la más adecuada para el objetivo
-- Si el usuario tiene equipo para cargar un patrón, NUNCA usar la versión de peso corporal cuando existe una alternativa con carga disponible
-- Nunca generar rutinas de "descanso" o "día libre" — solo generar los días de entrenamiento reales
-- El campo "nombre" del ejercicio usa SIEMPRE el nombre legible del implemento (ej: "Hip thrust con landmine") — NUNCA incluir IDs de equipo (cx_..., kb, sb, etc.) en el nombre del ejercicio
+- EQUIPO: elegir el implemento correcto para cada patrón basándose exclusivamente en el equipo disponible del perfil. NUNCA sugerir un implemento que el usuario no tiene
+- EJERCICIOS DE PESO CORPORAL PROHIBIDOS cuando el usuario tiene barra, mancuernas, kettlebell, polea o landmine disponibles: sentadilla con peso corporal, elevación de piernas con peso corporal, elevación de talones con peso corporal, flexiones con peso corporal si hay implemento de press disponible. EXCEPCIÓN: planchas y ejercicios isométricos de core pueden ser peso corporal aunque haya equipo
+- NUNCA repetir el mismo ejercicio exacto en más de un día del plan — si el Día 1 tiene "Sentadilla con barra", ningún otro día puede tener "Sentadilla con barra"; puede variar el implemento o el patrón pero no el ejercicio idéntico
+- Nunca generar rutinas de "descanso" o "día libre" — solo los días de entrenamiento reales
+- El campo "nombre" del ejercicio usa SIEMPRE el nombre legible del implemento (ej: "Hip thrust con landmine") — NUNCA incluir IDs de equipo (cx_..., kb, sb, etc.) en el nombre
 - El campo "equipo" del JSON usa el código ID correspondiente (kb, bb, cx_..., etc.) — ese es el único lugar donde van los IDs
 - PRIORIDAD: si la SOLICITUD menciona equipo específico, úsalo aunque no esté en el perfil
 - tipoMedida: "time" para isométricos/planchas, "dist" para carries, "reps" para todo lo demás
 - descansoRecomendado: 60-90 para fuerza, 30-60 para metcon
 - Respeta lesiones o limitaciones del perfil
-- Advertencia ⚠️ en "desc": SOLO si hay algo específicamente problemático para este usuario — lesión conocida incompatible con un ejercicio, volumen excesivo real o equipo incompatible. Si no hay nada concreto, no generar advertencia
+- Advertencia ⚠️ en "desc": SOLO si hay algo específicamente problemático para este usuario — lesión conocida incompatible con un ejercicio, volumen excesivo real o equipo incompatible. Si no hay nada concreto, no poner advertencia
 - Prohibido en cualquier campo de texto: "¡Claro!", "¡Por supuesto!", "Recuerda que", "Asegúrate de", "Es importante que", "No olvides que", "¡Excelente!", "¡Perfecto!"
 - Solo el JSON, nada más`
 }
