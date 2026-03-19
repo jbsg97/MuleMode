@@ -90,6 +90,7 @@ export const useStore = defineStore('mulemode', {
     altura: '',
     diasSemana: 4,
     memoriaEntrenador: '',
+    memoriaActualizadaEn: '',
     workout: null,
     pendingRegistro: null,
     // timer
@@ -209,7 +210,8 @@ export const useStore = defineStore('mulemode', {
           this.peso              = d.peso              || ''
           this.altura            = d.altura            || ''
           this.diasSemana        = d.diasSemana        || 4
-          this.memoriaEntrenador = d.memoriaEntrenador || ''
+          this.memoriaEntrenador    = d.memoriaEntrenador    || ''
+          this.memoriaActualizadaEn = d.memoriaActualizadaEn || ''
           if (d.workout) {
             this.workout = d.workout
             this.wkElapsed = Math.floor((Date.now() - d.workout.startTime) / 1000)
@@ -245,7 +247,8 @@ export const useStore = defineStore('mulemode', {
         peso:              this.peso,
         altura:            this.altura,
         diasSemana:        this.diasSemana,
-        memoriaEntrenador: this.memoriaEntrenador,
+        memoriaEntrenador:    this.memoriaEntrenador,
+        memoriaActualizadaEn: this.memoriaActualizadaEn,
         workout:           this.workout || null,
       }))
       setDoc(doc(db, 'users', this.uid), data).catch(e => console.error('save error', e))

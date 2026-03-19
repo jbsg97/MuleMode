@@ -28,6 +28,7 @@
 import { ref, nextTick } from 'vue'
 import { useStore, EQUIPO_MAP } from '../store/index.js'
 import { callClaude } from '../utils/claude.js'
+import { actualizarMemoria } from '../utils/memoria.js'
 
 const props = defineProps({ ex: Object })
 
@@ -102,29 +103,6 @@ async function scrollDown() {
 }
 
 async function extraerMemoria(userMsg, coachReply) {
-  const key = store.geminiKey
-  if (!key) return
-  const memoriaActual = store.memoriaEntrenador
-  const prompt = `Eres un asistente que extrae hechos relevantes sobre un atleta de una conversación con su entrenador.
-
-Memoria actual:
-${memoriaActual || '(ninguna aún)'}
-
-Nueva conversación:
-Atleta: ${userMsg}
-Entrenador: ${coachReply}
-
-Extrae ÚNICAMENTE hechos nuevos no presentes en la memoria: lesiones, molestias, puntos débiles, metas, equipo, nivel, preferencias. Si hay nueva info, devuelve solo las líneas nuevas como "- [hecho] (${new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })})". Si no hay nada nuevo, responde exactamente: NADA`
-
-  try {
-    const nuevos = (await callClaude(key, {
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 200,
-    })).trim()
-    if (nuevos && nuevos !== 'NADA') {
-      store.memoriaEntrenador = [memoriaActual, nuevos].filter(Boolean).join('\n')
-      store.save()
-    }
-  } catch { /* silencioso */ }
+  await actualizarMemoria(store, `Atleta: ${userMsg}\nEntrenador: ${coachReply}`)
 }
 </script>
