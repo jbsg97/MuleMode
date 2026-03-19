@@ -1,4 +1,5 @@
 import { callClaude } from './claude.js'
+import { calcularProgresion } from './progresion.js'
 
 const MAX_LINES = 30
 const MAX_CHARS = 2000
@@ -71,6 +72,56 @@ Reglas de formato:
     store.memoriaActualizadaEn  = new Date().toISOString()
     store.save()
   } catch { /* silencioso — nunca bloquear el flujo principal */ }
+}
+
+/**
+ * Actualiza la sección [HISTORIAL] de la memoria con los ejercicios de la sesión terminada.
+ * No llama a Claude — calcula la progresión localmente y reemplaza la sección.
+ *
+ * @param {object} store   - Pinia store (ya tiene la sesión en historial[0])
+ * @param {object} sesion  - pendingRegistro capturado antes de guardarYSalir()
+ * @param {Array}  rutinas - store.rutinas al momento del guardado
+ */
+export function actualizarHistorialEnMemoria(store, sesion, rutinas) {
+  const fecha = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+  const incrementoSup = store.incrementoTrenSuperior ?? 2.5
+  const incrementoInf = store.incrementoTrenInferior ?? 5
+
+  const lineas = []
+  for (const ex of (sesion.ejercicios || [])) {
+    const seriesDone = (ex.series || []).filter(s => s.done && s.peso)
+    if (seriesDone.length === 0) continue
+
+    const maxPeso   = Math.max(...seriesDone.map(s => parseFloat(s.peso) || 0))
+    const numSeries = seriesDone.length
+    const repsRef   = seriesDone[0]?.reps || ''
+
+    const prog = calcularProgresion(ex.nombre, store.historial, rutinas, incrementoSup, incrementoInf)
+
+    let linea = `- ${ex.nombre}: ${maxPeso}kg × ${numSeries}×${repsRef}`
+    if (prog?.estado === 'subirPeso') linea += ' — listo para subir'
+    else if (prog?.estado === 'subirReps') linea += ` — ${prog.mensaje.toLowerCase()}`
+    else if (prog?.estado === 'calentar') linea += ' — una más para progresar'
+    linea += ` (${fecha})`
+
+    lineas.push(linea)
+  }
+
+  if (lineas.length === 0) return
+
+  const historialSection = `[HISTORIAL]\n${lineas.join('\n')}`
+  const memoriaActual = store.memoriaEntrenador || ''
+  let memoriaFinal
+
+  if (memoriaActual.includes('[HISTORIAL]')) {
+    memoriaFinal = memoriaActual.replace(/\[HISTORIAL\][\s\S]*$/, historialSection)
+  } else {
+    memoriaFinal = (memoriaActual.trim() ? memoriaActual.trim() + '\n\n' : '') + historialSection
+  }
+
+  store.memoriaEntrenador    = memoriaFinal.slice(0, MAX_CHARS)
+  store.memoriaActualizadaEn = new Date().toISOString()
+  store.save()
 }
 
 function aplicarLimite(texto) {

@@ -30,7 +30,7 @@
       </div>
     </div>
 
-    <button class="btn btn-accent btn-full" style="max-width:320px;width:100%" @click="store.guardarYSalir()">
+    <button class="btn btn-accent btn-full" style="max-width:320px;width:100%" @click="guardarEntrenamiento()">
       Guardar entrenamiento
     </button>
     <button class="btn btn-outline btn-full" style="max-width:320px;width:100%;margin-top:8px;color:var(--red);border-color:var(--red)"
@@ -43,8 +43,16 @@
 <script setup>
 import { computed } from 'vue'
 import { useStore } from '../store/index.js'
+import { actualizarHistorialEnMemoria } from '../utils/memoria.js'
 
 const store = useStore()
+
+function guardarEntrenamiento() {
+  const sesion  = store.pendingRegistro
+  const rutinas = store.rutinas.slice() // snapshot before clearing
+  store.guardarYSalir()
+  if (sesion) actualizarHistorialEnMemoria(store, sesion, rutinas)
+}
 
 function confirmarDescartar() {
   if (confirm('¿Descartar este entrenamiento? Se perderá todo el progreso.')) {

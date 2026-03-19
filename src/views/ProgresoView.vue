@@ -139,12 +139,17 @@
       <!-- ── Records personales ─────────────────────────── -->
       <div class="card" style="margin:0 16px 12px">
         <div class="chart-title" style="margin-bottom:12px">🏆 Records personales</div>
-        <div v-if="prs.length === 0" style="font-size:13px;color:var(--text3);text-align:center;padding:12px 0">
+        <div v-if="prsConProgresion.length === 0" style="font-size:13px;color:var(--text3);text-align:center;padding:12px 0">
           Aún no hay records. ¡Empieza a levantar!
         </div>
         <div v-else>
-          <div v-for="pr in prs" :key="pr.nombre" class="pr-row">
-            <div class="pr-row-name">{{ pr.nombre }}</div>
+          <div v-for="pr in prsConProgresion" :key="pr.nombre" class="pr-row">
+            <div style="flex:1;min-width:0;padding-right:8px">
+              <div class="pr-row-name">{{ pr.nombre }}</div>
+              <div v-if="pr.progresion" :class="['prog-badge', 'prog-' + pr.progresion.estado]">
+                {{ pr.progresion.mensaje }}
+              </div>
+            </div>
             <div style="text-align:right;flex-shrink:0">
               <div class="pr-row-val">
                 {{ pr.equipo === 'band' ? pr.peso : pr.peso + ' kg' }}
@@ -207,6 +212,7 @@ import Chart from 'chart.js/auto'
 import { useStore } from '../store/index.js'
 import MuscleMap from '../components/MuscleMap.vue'
 import { callClaude } from '../utils/claude.js'
+import { calcularProgresion } from '../utils/progresion.js'
 
 const store = useStore()
 const selectedEx = ref('')
@@ -279,7 +285,7 @@ const weekMuscles = computed(() => {
   return Object.entries(map).map(([muscle, nivel]) => ({ muscle, nivel }))
 })
 
-// ── Records personales ─────────────────────────────────────────
+// ── Records personales + progresión ───────────────────────────
 const prs = computed(() => {
   const best = {}
   store.historial.forEach(h => {
@@ -300,6 +306,16 @@ const prs = computed(() => {
     .map(([nombre, d]) => ({ nombre, ...d }))
     .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
 })
+
+const prsConProgresion = computed(() =>
+  prs.value.map(pr => ({
+    ...pr,
+    progresion: calcularProgresion(
+      pr.nombre, store.historial, store.rutinas,
+      store.incrementoTrenSuperior ?? 2.5, store.incrementoTrenInferior ?? 5
+    ),
+  }))
+)
 
 function formatDate(fecha) {
   const d = new Date(fecha)
@@ -895,6 +911,21 @@ watch(() => store.historial.length, () => { nextTick(buildVolChart) })
   cursor: pointer;
   margin-top: 4px;
 }
+
+/* Progression badge */
+.prog-badge {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 20px;
+  letter-spacing: 0.03em;
+  margin-top: 3px;
+}
+.prog-subirPeso  { background: rgba(68, 204, 136, 0.15); color: #44cc88; }
+.prog-subirReps  { background: rgba(232, 240, 58, 0.12); color: #e8f03a; }
+.prog-mantener   { background: rgba(96, 96, 96, 0.2);    color: #909090; }
+.prog-calentar   { background: rgba(96, 96, 96, 0.2);    color: #909090; }
 
 /* Trend badge */
 .trend-badge {

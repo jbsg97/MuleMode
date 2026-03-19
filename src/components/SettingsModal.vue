@@ -102,6 +102,26 @@
         </div>
       </div>
 
+      <!-- Incrementos de progresión -->
+      <div style="margin-bottom:24px;border-top:1px solid var(--border);padding-top:16px">
+        <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:4px">📈 Incrementos de progresión</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:10px;line-height:1.5">
+          Peso que se sugiere subir al completar 2 sesiones consecutivas al tope de reps.
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div>
+            <label class="form-label">Tren superior (kg)</label>
+            <input class="form-input" type="number" min="0.5" max="20" step="0.5" placeholder="2.5"
+              v-model.number="incrementoSupInput">
+          </div>
+          <div>
+            <label class="form-label">Tren inferior (kg)</label>
+            <input class="form-input" type="number" min="1" max="20" step="1" placeholder="5"
+              v-model.number="incrementoInfInput">
+          </div>
+        </div>
+      </div>
+
       <!-- Anthropic API Key -->
       <div style="margin-bottom:24px;border-top:1px solid var(--border);padding-top:16px">
         <div style="font-size:13px;font-weight:700;color:var(--text1);margin-bottom:4px">🤖 Claude API Key</div>
@@ -168,20 +188,24 @@ defineProps({ visible: Boolean })
 const emit = defineEmits(['close'])
 
 const store = useStore()
-const keyInput        = ref('')
-const generoInput     = ref('')
-const equipoInput     = ref([])
-const pesoInput       = ref('')
-const alturaInput     = ref('')
-const diasSemanaInput = ref(4)
-const nuevoEquipo     = ref('')
+const keyInput          = ref('')
+const generoInput       = ref('')
+const equipoInput       = ref([])
+const pesoInput         = ref('')
+const alturaInput       = ref('')
+const diasSemanaInput   = ref(4)
+const incrementoSupInput = ref(2.5)
+const incrementoInfInput = ref(5)
+const nuevoEquipo       = ref('')
 
-watch(() => store.geminiKey,       (val) => { keyInput.value        = val },            { immediate: true })
-watch(() => store.genero,          (val) => { generoInput.value     = val },            { immediate: true })
-watch(() => store.equipoPreferido, (val) => { equipoInput.value     = [...(val||[])] }, { immediate: true })
-watch(() => store.peso,            (val) => { pesoInput.value       = val },            { immediate: true })
-watch(() => store.altura,          (val) => { alturaInput.value     = val },            { immediate: true })
-watch(() => store.diasSemana,      (val) => { diasSemanaInput.value = val || 4 },       { immediate: true })
+watch(() => store.geminiKey,              (val) => { keyInput.value           = val },            { immediate: true })
+watch(() => store.genero,                 (val) => { generoInput.value        = val },            { immediate: true })
+watch(() => store.equipoPreferido,        (val) => { equipoInput.value        = [...(val||[])] }, { immediate: true })
+watch(() => store.peso,                   (val) => { pesoInput.value          = val },            { immediate: true })
+watch(() => store.altura,                 (val) => { alturaInput.value        = val },            { immediate: true })
+watch(() => store.diasSemana,             (val) => { diasSemanaInput.value    = val || 4 },       { immediate: true })
+watch(() => store.incrementoTrenSuperior, (val) => { incrementoSupInput.value = val ?? 2.5 },     { immediate: true })
+watch(() => store.incrementoTrenInferior, (val) => { incrementoInfInput.value = val ?? 5 },       { immediate: true })
 
 function toggleEquipo(val) {
   const idx = equipoInput.value.indexOf(val)
@@ -205,12 +229,14 @@ function eliminarEquipoCustom(id) {
 }
 
 function guardar() {
-  store.geminiKey       = keyInput.value.trim()
-  store.genero          = generoInput.value
-  store.equipoPreferido = [...equipoInput.value]
-  store.peso            = pesoInput.value       || ''
-  store.altura          = alturaInput.value     || ''
-  store.diasSemana      = diasSemanaInput.value || 4
+  store.geminiKey              = keyInput.value.trim()
+  store.genero                 = generoInput.value
+  store.equipoPreferido        = [...equipoInput.value]
+  store.peso                   = pesoInput.value          || ''
+  store.altura                 = alturaInput.value        || ''
+  store.diasSemana             = diasSemanaInput.value    || 4
+  store.incrementoTrenSuperior = incrementoSupInput.value || 2.5
+  store.incrementoTrenInferior = incrementoInfInput.value || 5
   store.save()
   store.showToast('Ajustes guardados ✓')
   emit('close')
